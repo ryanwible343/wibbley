@@ -1,7 +1,5 @@
-import json
+import copy
 import logging
-from asyncio import Queue
-from typing import Callable, Coroutine
 from urllib.parse import quote, unquote
 
 import orjson
@@ -68,23 +66,11 @@ class Request:
 
 
 class App:
-    def __init__(
-        self,
-        router: Router,
-        cors_settings: CORSSettings,
-        listeners: list[Listener | None] = [],
-    ):
-        self.router = router
-        self.cors_settings = cors_settings
-        self.listeners = listeners
-
-        self.event_handlers = {}
-        self.command_handlers = {}
-        self.query_handlers = {}
-        for listener in self.listeners:
-            self.event_handlers.update(listener.event_handlers)
-            self.command_handlers.update(listener.command_handlers)
-            self.query_handlers.update(listener.query_handlers)
+    def __init__(self):
+        self.routes = {}
+        self.router = Router()
+        self.cors_settings = None
+        self.messagebus = None
 
     def _determine_content_type_header(self, result):
         response_types = {
@@ -130,6 +116,30 @@ class App:
             header[0].decode("utf-8"): header[1].decode("utf-8") for header in headers
         }
         return headers
+
+    def add_router(self, router: Router):
+        self.router = router
+
+    def enable_cors(self, cors_settings: CORSSettings):
+        self.cors_settings = cors_settings
+
+    def add_messagebus(self, messagebus: Messagebus):
+        self.messagebus = messagebus
+
+    def get(self, path: str):
+        return self.router.get(path)
+
+    def post(self, path):
+        return self.router.post(path)
+
+    def put(self, path):
+        return self.router.put(path)
+
+    def delete(self, path):
+        return self.router.delete(path)
+
+    def patch(self, path):
+        return self.router.patch(path)
 
     async def __call__(self, scope, receive, send):
         assert scope["type"] == "http"
@@ -196,11 +206,10 @@ class App:
             body=request_body,
         )
 
-        messagebus = Messagebus(
-            event_handlers=self.event_handlers,
-            command_handlers=self.command_handlers,
-            query_handlers=self.query_handlers,
-        )
+        if self.messagebus:
+            messagebus = copy.deepcopy(self.messagebus)
+        else:
+            messagebus = None
 
         result = await route_func(request=request, messagebus=messagebus)
 
@@ -247,4 +256,5 @@ class App:
             }
         )
 
-        await messagebus.handle_queue()
+        if messagebus:
+            await messagebus.handle_queue()

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from wibbley.listen import Listener
 from wibbley.messages import Command, Event, Query
 
 LOGGER = logging.getLogger(__name__)
@@ -9,17 +10,21 @@ LOGGER = logging.getLogger(__name__)
 class Messagebus:
     def __init__(
         self,
-        event_handlers: dict,
-        command_handlers: dict,
-        query_handlers: dict,
+        listeners: list[Listener],
         is_unplugged: bool = False,
     ):
-        self.event_handlers = event_handlers
-        self.command_handlers = command_handlers
-        self.query_handlers = query_handlers
         self.is_unplugged = is_unplugged
+        self.listeners = listeners
         if not is_unplugged:
             self.queue = asyncio.Queue()
+
+        self.event_handlers = {}
+        self.command_handlers = {}
+        self.query_handlers = {}
+        for listener in self.listeners:
+            self.event_handlers.update(listener.event_handlers)
+            self.command_handlers.update(listener.command_handlers)
+            self.query_handlers.update(listener.query_handlers)
 
     def listen_to_event(self, event):
         def decorator(func):
@@ -63,10 +68,11 @@ class Messagebus:
             self.queue.put_nowait(event)
         elif isinstance(message, Event):
             event = await self._handle_event(message)
-            if self.is_unplugged:
-                return await self.handle(event)
+            if event:
+                if self.is_unplugged:
+                    return await self.handle(event)
 
-            self.queue.put_nowait(event)
+                self.queue.put_nowait(event)
         elif isinstance(message, Query):
             return await self._handle_query(message)
         else:
