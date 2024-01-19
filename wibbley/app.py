@@ -4,8 +4,9 @@ from urllib.parse import quote, unquote
 
 import orjson
 
+from wibbley.http_handler import HTTPHandler
 from wibbley.listen import Listener
-from wibbley.messagebus import Messagebus
+from wibbley.messagebus import AbstractMessagebus
 from wibbley.router import Router
 
 LOGGER = logging.getLogger(__name__)
@@ -65,12 +66,23 @@ class Request:
         }
 
 
+class EventHandlingSettings:
+    def __init__(
+        self,
+        enabled: bool = False,
+        handler: AbstractMessagebus = None,
+    ):
+        self.enabled = enabled
+        self.handler = handler
+
+
 class App:
-    def __init__(self):
+    def __init__(
+        self,
+        http_handler: HTTPHandler,
+    ):
         self.routes = {}
-        self.router = Router()
-        self.cors_settings = None
-        self.messagebus = None
+        self.http_handler = http_handler
 
     def _determine_content_type_header(self, result):
         response_types = {
@@ -123,8 +135,8 @@ class App:
     def enable_cors(self, cors_settings: CORSSettings):
         self.cors_settings = cors_settings
 
-    def add_messagebus(self, messagebus: Messagebus):
-        self.messagebus = messagebus
+    def enable_event_handling(self, event_handling_settings: EventHandlingSettings):
+        self.event_handling_settings = event_handling_settings
 
     def get(self, path: str):
         return self.router.get(path)

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from abc import ABC, abstractmethod
 
 from wibbley.listen import Listener
 from wibbley.messages import Command, Event, Query
@@ -7,7 +8,13 @@ from wibbley.messages import Command, Event, Query
 LOGGER = logging.getLogger(__name__)
 
 
-class Messagebus:
+class AbstractMessagebus(ABC):
+    @abstractmethod
+    async def handle(self, message):
+        raise NotImplementedError
+
+
+class Messagebus(AbstractMessagebus):
     def __init__(
         self,
         listeners: list[Listener],
