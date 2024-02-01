@@ -1,5 +1,5 @@
-from wibbley.http_handler.http_response import HTTPResponse
 from wibbley.http_handler.request_handlers.response_sender import ResponseSender
+from wibbley.http_handler.response import HTTPResponse
 
 
 class DefaultRequestHandler:

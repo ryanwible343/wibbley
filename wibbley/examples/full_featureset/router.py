@@ -1,7 +1,7 @@
 import logging
 
-from wibbley.messages import Command
-from wibbley.router import Router
+from wibbley.event_driven.messages import Command
+from wibbley.http_handler.router import Router
 
 router = Router()
 
