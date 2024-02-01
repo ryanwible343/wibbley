@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Coroutine
 
@@ -9,6 +10,27 @@ from wibbley.request_handlers.head_request_handler import HeadRequestHandler
 from wibbley.request_handlers.options_request_handler import OptionsRequestHandler
 from wibbley.request_handlers.response_sender import ResponseSender
 from wibbley.router import Router
+
+LOGGER = logging.getLogger(__name__)
+
+
+class HTTPResponse:
+    def __init__(
+        self,
+        status_code: int,
+        headers: list[tuple[bytes, bytes]],
+        body: bytes,
+    ):
+        self.status_code = status_code
+        self.headers = headers
+        self.body = body
+
+    def to_dict(self):
+        return {
+            "status_code": self.status_code,
+            "headers": self.headers,
+            "body": self.body,
+        }
 
 
 class HTTPRequest:
@@ -146,8 +168,19 @@ class HTTPHandler:
             headers=headers,
             receive=receive,
         )
-        # TODO: handle exceptions from route_func
-        result = await route_func(request=http_request)
+        try:
+            result = await route_func(request=http_request)
+        except Exception as e:
+            LOGGER.exception(e, exc_info=True)
+            await self.response_sender.send_response(
+                send,
+                status_code=500,
+                headers=[
+                    (b"content-type", b"application/json"),
+                ],
+                response_body={"detail": "Internal Server Error"},
+            )
+            return
 
         if method == "HEAD":
             await self.head_request_handler.handle(send, result)

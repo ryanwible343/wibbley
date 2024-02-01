@@ -1,3 +1,4 @@
+from wibbley.http_handler import HTTPResponse
 from wibbley.request_handlers.response_sender import ResponseSender
 
 
@@ -18,10 +19,19 @@ class DefaultRequestHandler:
         response_header = response_types.get(type(result))
         return response_header
 
-    async def handle(self, send, route_func_result: str | bytes | dict | list):
-        content_type_header = self._determine_content_type_header(route_func_result)
+    async def handle(
+        self, send, route_func_result: str | bytes | dict | list | HTTPResponse
+    ):
+        if isinstance(route_func_result, HTTPResponse):
+            return await self.response_sender.send_response(
+                send,
+                status_code=route_func_result.status_code,
+                headers=route_func_result.headers,
+                response_body=route_func_result.response_body,
+            )
 
-        await self.response_sender.send_response(
+        content_type_header = self._determine_content_type_header(route_func_result)
+        return await self.response_sender.send_response(
             send,
             status_code=200,
             headers=[
