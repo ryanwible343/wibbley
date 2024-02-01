@@ -42,6 +42,9 @@ class App:
     def enable_cors(self, cors_settings: CORSSettings):
         self.http_handler.options_request_handler.cors_settings = cors_settings
 
+    def enable_event_handling(self, event_handling_settings: EventHandlingSettings):
+        self.http_handler.event_handling_settings = event_handling_settings
+
     def get(self, path: str):
         return self.http_handler.router.get(path)
 

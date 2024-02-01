@@ -87,4 +87,4 @@ class HTTPHandler:
             await self.default_request_handler.handle(send, result)
 
         if self.event_handling_settings.enabled:
-            await self.event_handling_settings.handler.handle(result)
+            await self.event_handling_settings.handler.handle_queue()

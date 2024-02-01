@@ -39,13 +39,13 @@ class Messagebus(AbstractMessagebus):
             command_handler = self.command_handlers[type(message)]
             event = await command_handler(message)
             if event is not None:
-                await self.queue.put(result)
+                await self.queue.put(event)
             return True
         elif isinstance(message, Event):
             event_handler = self.event_handlers[type(message)]
-            result = await event_handler(message)
+            event = await event_handler(message)
             if event is not None:
-                await self.queue.put(result)
+                await self.queue.put(event)
             return True
         elif isinstance(message, Query):
             query_handler = self.query_handlers[type(message)]
