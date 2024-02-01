@@ -2,7 +2,7 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 
-from wibbley.listen import Listener
+from wibbley.messagebus.listen import Listener
 from wibbley.messages import Command, Event, Query
 
 LOGGER = logging.getLogger(__name__)

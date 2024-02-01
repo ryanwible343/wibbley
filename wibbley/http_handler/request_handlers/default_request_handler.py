@@ -1,4 +1,4 @@
-from wibbley.http_handler import HTTPResponse
+from wibbley.http_handler.http_handler import HTTPResponse
 from wibbley.request_handlers.response_sender import ResponseSender
 
 
