@@ -43,8 +43,9 @@ class HTTPHandler:
         query_string = scope["query_string"]
         print("query_string", query_string)
         route_func = self.router.routes.get(path, {}).get(method, None)
+        available_methods = self.router.routes.get(path, {}).keys()
 
-        if route_func is None:
+        if len(available_methods) == 0:
             return await self.response_sender.send_response(
                 send,
                 status_code=404,
@@ -55,7 +56,6 @@ class HTTPHandler:
             )
 
         if method == "OPTIONS":
-            available_methods = self.router.routes.get(path, {}).keys()
             return await self.options_request_handler.handle(send, available_methods)
 
         http_request = await self.http_request_constructor.construct(

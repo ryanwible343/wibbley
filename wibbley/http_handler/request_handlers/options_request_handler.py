@@ -13,6 +13,10 @@ class OptionsRequestHandler:
                 send,
                 headers=[
                     (b"content-type", b"application/json"),
+                    (
+                        b"Allow",
+                        ", ".join(available_methods).encode("utf-8"),
+                    ),
                 ],
                 response_body=b"",
                 status_code=200,
@@ -25,7 +29,8 @@ class OptionsRequestHandler:
                     (
                         b"Allow",
                         ", ".join(available_methods).encode("utf-8"),
-                    )(
+                    ),
+                    (
                         b"Access-Control-Allow-Origin",
                         self.cors_settings.serialized_allow_origins,
                     ),
