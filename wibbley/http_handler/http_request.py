@@ -58,6 +58,8 @@ class HTTPRequestConstructor:
     def _format_query_params(self, query_string):
         query_params = {}
         for query in query_string.split(b"&"):
+            if not query:
+                continue
             key, value = query.split(b"=")
             query_params[key.decode("utf-8")] = value.decode("utf-8")
         return query_params

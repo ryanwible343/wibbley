@@ -41,10 +41,11 @@ class HTTPHandler:
         method = scope["method"]
         headers = scope["headers"]
         query_string = scope["query_string"]
+        print("query_string", query_string)
         route_func = self.router.routes.get(path, {}).get(method, None)
 
         if route_func is None:
-            await self.response_sender.send_response(
+            return await self.response_sender.send_response(
                 send,
                 status_code=404,
                 headers=[
@@ -52,12 +53,10 @@ class HTTPHandler:
                 ],
                 response_body={"detail": "Not Found"},
             )
-            return
 
         if method == "OPTIONS":
-            # TODO: OptionsRequestHandler should set Allow header of which methods on path are allowed
-            await self.options_request_handler.handle(send)
-            return
+            available_methods = self.router.routes.get(path, {}).keys()
+            return await self.options_request_handler.handle(send, available_methods)
 
         http_request = await self.http_request_constructor.construct(
             path=path,

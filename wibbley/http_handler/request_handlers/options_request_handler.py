@@ -1,4 +1,4 @@
-from wibbley.app import CORSSettings
+from wibbley.http_handler.cors import CORSSettings
 from wibbley.http_handler.request_handlers.response_sender import ResponseSender
 
 
@@ -7,7 +7,7 @@ class OptionsRequestHandler:
         self.cors_settings = cors_settings
         self.response_sender = response_sender
 
-    async def handle(self, send):
+    async def handle(self, send, available_methods: list[str]):
         if self.cors_settings is None:
             await self.response_sender.send_response(
                 send,
@@ -23,6 +23,9 @@ class OptionsRequestHandler:
                 headers=[
                     (b"content-type", b"application/json"),
                     (
+                        b"Allow",
+                        ", ".join(available_methods).encode("utf-8"),
+                    )(
                         b"Access-Control-Allow-Origin",
                         self.cors_settings.serialized_allow_origins,
                     ),

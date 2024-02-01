@@ -38,6 +38,6 @@ class ResponseSender:
             }
         )
 
-    async def send_response(self, send, headers, response_body):
-        await self.send_response_start(send, headers)
-        await self.send_response_body(send, response_body)
+    async def send_response(self, send, headers, response_body, status_code):
+        await self.send_response_start(send, headers, status_code)
+        await self.send_response_body(send, response_body, status_code)
