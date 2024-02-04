@@ -1,5 +1,5 @@
-from wibbley.http_handler.cors import CORSSettings
-from wibbley.http_handler.request_handlers.response_sender import ResponseSender
+from wibbley.api.http_handler.cors import CORSSettings
+from wibbley.api.http_handler.request_handlers.response_sender import ResponseSender
 
 
 class OptionsRequestHandler:

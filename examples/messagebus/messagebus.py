@@ -1,4 +1,4 @@
-from wibbley import Command, Event, Messagebus
+from wibbley.event_driven import Command, Event, Messagebus
 
 messagebus = Messagebus()
 

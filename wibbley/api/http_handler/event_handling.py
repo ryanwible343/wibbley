@@ -1,4 +1,4 @@
-from wibbley.event_driven.messagebus import AbstractMessagebus
+from wibbley.event_driven import AbstractMessagebus
 
 
 class EventHandlingSettings:

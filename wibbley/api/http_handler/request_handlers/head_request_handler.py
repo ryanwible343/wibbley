@@ -1,4 +1,4 @@
-from wibbley.http_handler.request_handlers.response_sender import ResponseSender
+from wibbley.api.http_handler.request_handlers.response_sender import ResponseSender
 
 
 class HeadRequestHandler:

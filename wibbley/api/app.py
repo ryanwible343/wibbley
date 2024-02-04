@@ -1,20 +1,20 @@
 import orjson
 
-from wibbley.http_handler.cors import CORSSettings
-from wibbley.http_handler.event_handling import EventHandlingSettings
-from wibbley.http_handler.handler import HTTPHandler
-from wibbley.http_handler.request import HTTPRequestConstructor
-from wibbley.http_handler.request_handlers.default_request_handler import (
+from wibbley.api.http_handler.cors import CORSSettings
+from wibbley.api.http_handler.event_handling import EventHandlingSettings
+from wibbley.api.http_handler.handler import HTTPHandler
+from wibbley.api.http_handler.request import HTTPRequestConstructor
+from wibbley.api.http_handler.request_handlers.default_request_handler import (
     DefaultRequestHandler,
 )
-from wibbley.http_handler.request_handlers.head_request_handler import (
+from wibbley.api.http_handler.request_handlers.head_request_handler import (
     HeadRequestHandler,
 )
-from wibbley.http_handler.request_handlers.options_request_handler import (
+from wibbley.api.http_handler.request_handlers.options_request_handler import (
     OptionsRequestHandler,
 )
-from wibbley.http_handler.request_handlers.response_sender import ResponseSender
-from wibbley.http_handler.router import Router
+from wibbley.api.http_handler.request_handlers.response_sender import ResponseSender
+from wibbley.api.http_handler.router import Router
 
 
 class App:

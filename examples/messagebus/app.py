@@ -1,5 +1,5 @@
-from wibbley import App, EventHandlingSettings
-from wibbley.examples.messagebus.messagebus import MyCommand, messagebus
+from examples.messagebus.messagebus import MyCommand, messagebus
+from wibbley.api import App, EventHandlingSettings
 
 event_handling_settings = EventHandlingSettings(enabled=True, handler=messagebus)
 

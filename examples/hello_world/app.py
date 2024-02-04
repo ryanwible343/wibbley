@@ -1,8 +1,4 @@
-import logging
-
-import orjson
-
-from wibbley import App
+from wibbley.api import App
 
 app = App()
 
