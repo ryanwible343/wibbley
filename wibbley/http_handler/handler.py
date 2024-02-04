@@ -41,7 +41,6 @@ class HTTPHandler:
         method = scope["method"]
         headers = scope["headers"]
         query_string = scope["query_string"]
-        print("query_string", query_string)
         route_func = self.router.routes.get(path, {}).get(method, None)
         available_methods = self.router.routes.get(path, {}).keys()
 

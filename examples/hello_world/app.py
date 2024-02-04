@@ -2,7 +2,7 @@ import logging
 
 import orjson
 
-from wibbley.app import App
+from wibbley import App
 
 app = App()
 
