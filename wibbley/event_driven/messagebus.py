@@ -3,6 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 
 from wibbley.event_driven.messages import Command, Event, Query
+from wibbley.event_driven.queue import wibbley_queue
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class Messagebus(AbstractMessagebus):
         self.event_handlers = {}
         self.command_handlers = {}
         self.query_handlers = {}
-        self.queue = asyncio.Queue()
+        self.queue = wibbley_queue
 
     def is_function(self, obj):
         if callable(obj):
@@ -88,17 +89,14 @@ class Messagebus(AbstractMessagebus):
             if not self.command_handlers.get(type(message)):
                 raise ValueError(f"No command handler registered for {type(message)}")
             command_handler = self.command_handlers[type(message)]
-            event = await command_handler(message)
-            if event is not None:
-                await self.queue.put(event)
+            await command_handler(message)
             return True
         elif isinstance(message, Event):
             if not self.event_handlers.get(type(message)):
                 raise ValueError(f"No event handler registered for {type(message)}")
             for event_handler in self.event_handlers[type(message)]:
-                event = await event_handler(message)
-                if event is not None:
-                    await self.queue.put(event)
+                await event_handler(message)
+            return True
         elif isinstance(message, Query):
             if not self.query_handlers.get(type(message)):
                 raise ValueError(f"No query handler registered for {type(message)}")
@@ -112,3 +110,7 @@ class Messagebus(AbstractMessagebus):
         message = self.queue.get_nowait()
         await self.handle(message)
         self.queue.task_done()
+
+
+async def send(message):
+    await wibbley_queue.put(message)
