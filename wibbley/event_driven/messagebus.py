@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from abc import ABC, abstractmethod
 
@@ -112,5 +111,5 @@ class Messagebus(AbstractMessagebus):
         self.queue.task_done()
 
 
-async def send(message):
-    await wibbley_queue.put(message)
+async def send(message, queue=wibbley_queue):
+    await queue.put(message)
