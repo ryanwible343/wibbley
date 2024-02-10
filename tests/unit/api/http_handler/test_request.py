@@ -27,6 +27,7 @@ def test__http_request_body_as_dict__returns_dict():
         query_params={},
         headers={},
         body=b'{"key": "value"}',
+        path_params={},
     )
 
     # ACT/ASSERT
@@ -41,6 +42,7 @@ def test__http_request_body_as_str__returns_str():
         query_params={},
         headers={},
         body=b'{"key": "value"}',
+        path_params={},
     )
 
     # ACT/ASSERT
@@ -55,6 +57,7 @@ def test__http_request_to_dict__returns_dict():
         query_params={"key": "value"},
         headers={"key": "value"},
         body=b'{"key": "value"}',
+        path_params={},
     )
 
     # ACT/ASSERT
@@ -148,6 +151,7 @@ async def test__http_request_constructor_construct__returns_http_request():
         query_string=b"",
         headers=[],
         receive=FakeReceiveOnce(),
+        path_params={},
     )
 
     # ASSERT
@@ -156,3 +160,4 @@ async def test__http_request_constructor_construct__returns_http_request():
     assert request.query_params == {}
     assert request.headers == {}
     assert request.body == b"test"
+    assert request.path_params == {}

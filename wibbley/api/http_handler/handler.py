@@ -102,6 +102,7 @@ class HTTPHandler:
         http_request = await self.http_request_constructor.construct(
             path=path,
             method=method,
+            path_params=path_parameters,
             query_string=query_string,
             headers=headers,
             receive=receive,

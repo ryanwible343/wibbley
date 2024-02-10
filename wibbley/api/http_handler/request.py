@@ -9,6 +9,7 @@ class HTTPRequest:
         path: str,
         method: str,
         query_params: dict[str, str],
+        path_params: dict[str, str],
         headers: dict[str, str],
         body: bytes,
     ):
@@ -17,6 +18,7 @@ class HTTPRequest:
         self.query_params = query_params
         self.headers = headers
         self.body = body
+        self.path_params = path_params
 
     @property
     def body_as_dict(self):
@@ -39,6 +41,7 @@ class HTTPRequestConstructor:
     async def construct(
         self,
         path: str,
+        path_params: dict[str, str],
         method: str,
         query_string: bytes,
         headers: list[tuple[bytes, bytes]],
@@ -53,6 +56,7 @@ class HTTPRequestConstructor:
             query_params=query_params,
             headers=headers,
             body=request_body,
+            path_params=path_params,
         )
 
     def _format_query_params(self, query_string):

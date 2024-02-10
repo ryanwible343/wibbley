@@ -51,7 +51,9 @@ class FakeHTTPRequestConstructor:
     def __init__(self):
         pass
 
-    async def construct(self, path, method, headers, query_string, receive):
+    async def construct(
+        self, path, method, headers, query_string, receive, path_params
+    ):
         return "some_request"
 
 
