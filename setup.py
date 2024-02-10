@@ -7,7 +7,7 @@ setup(
     install_requires=["uvicorn", "uvloop", "orjson", "click"],
     entry_points={
         "console_scripts": [
-            "wibbley = wibbley.api.main:main",
+            "wibbley = wibbley.main:main",
         ],
     },
     python_requires=">=3.8",
