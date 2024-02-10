@@ -54,6 +54,9 @@ class HTTPHandler:
                 response_body={"detail": "Not Found"},
             )
 
+        if method == "OPTIONS":
+            return await self.options_request_handler.handle(send, available_methods)
+
         if route_func is None:
             return await self.response_sender.send_response(
                 send,
@@ -71,8 +74,22 @@ class HTTPHandler:
                 response_body={"detail": "Method Not Allowed"},
             )
 
-        if method == "OPTIONS":
-            return await self.options_request_handler.handle(send, available_methods)
+        if method == "HEAD" and "GET" not in available_methods:
+            return await self.response_sender.send_response(
+                send,
+                status_code=405,
+                headers=[
+                    (b"content-type", b"application/json"),
+                    (
+                        b"allow",
+                        b",".join(
+                            available_method.encode("utf-8")
+                            for available_method in available_methods
+                        ),
+                    ),
+                ],
+                response_body={"detail": "Method Not Allowed"},
+            )
 
         http_request = await self.http_request_constructor.construct(
             path=path,
@@ -97,10 +114,6 @@ class HTTPHandler:
 
         if method == "HEAD":
             await self.head_request_handler.handle(send, result)
-            return
 
         if method in ["GET", "POST", "PUT", "PATCH", "DELETE"]:
             await self.default_request_handler.handle(send, result)
-
-        if self.event_handling_settings.enabled:
-            await self.event_handling_settings.handler.handle_queue()
