@@ -4,5 +4,5 @@ app = App()
 
 
 @app.get("/hello")
-async def hello(request):
-    return "hello world"
+async def hello():
+    return {"message": "Hello, World!"}

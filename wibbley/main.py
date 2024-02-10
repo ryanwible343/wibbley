@@ -426,6 +426,7 @@ def main(
         print("Failed to load ASGI application")
         return
 
+    loaded_messagebus = None
     if messagebus:
         loaded_messagebus = load_module(messagebus)
         if not loaded_messagebus:

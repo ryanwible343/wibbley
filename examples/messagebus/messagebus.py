@@ -1,4 +1,4 @@
-from wibbley.event_driven import Command, Event, Messagebus
+from wibbley.event_driven import Command, Event, Messagebus, send
 
 messagebus = Messagebus()
 
@@ -13,14 +13,8 @@ class MyCommand(Command):
 
 @messagebus.listen(MyCommand)
 async def my_command_listener(command):
-    return MyEvent()
-
-
-@messagebus.listen(MyEvent)
-class MyEventListener:
-    async def handle(self, event):
-        print(f"Event received: {event}")
-        return None
+    print(f"Command received: {command}")
+    await send(MyEvent())
 
 
 @messagebus.listen(MyEvent)
