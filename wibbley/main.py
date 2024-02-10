@@ -1,5 +1,6 @@
 import asyncio
 import importlib.util
+import logging
 import os
 import signal
 import ssl
@@ -16,14 +17,18 @@ from wibbley.event_driven.queue import wibbley_queue
 SIGNAL_HANDLERS = [SIGINT, SIGTERM]
 DEFAULT_EVENT_HANDLER_TASK_COUNT = 100
 TRACE_LOG_LEVEL = 5
-LOG_LEVEL_CHOICES = [
-    "critical",
-    "error",
-    "warning",
-    "info",
-    "debug",
-    "trace",
-]
+LOG_LEVELS: dict[str, int] = {
+    "critical": logging.CRITICAL,
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+    "trace": TRACE_LOG_LEVEL,
+}
+LOG_LEVEL_CHOICES = click.Choice(list(LOG_LEVELS.keys()))
+
+
+LOGGER = logging.getLogger("wibbley")
 
 
 def load_module(module_path: str):
@@ -37,10 +42,9 @@ def load_module(module_path: str):
     variable_name = components[1]
 
     try:
-        # Try to import the module
         module = importlib.import_module(module_path)
     except ImportError:
-        print(f"Failed to import module '{module_path}'")
+        LOGGER.exception(f"Failed to import module '{module_path}'")
         return None
 
     # Check if the module has the specified attribute (variable_name)
@@ -56,8 +60,7 @@ def load_module(module_path: str):
 async def read_from_queue(queue: asyncio.Queue, messagebus):
     while True:
         try:
-            message = await queue.get()
-            await messagebus.handle(message)
+            await messagebus.handle_queue()
         except asyncio.CancelledError:
             break
 
@@ -416,6 +419,7 @@ def main(
 ):
     current_dir = os.getcwd()
     sys.path.insert(0, current_dir)
+    print("current_dir", current_dir)
 
     loaded_app = load_module(app)
     if not loaded_app:
