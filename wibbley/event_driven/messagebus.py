@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 
 from wibbley.event_driven.messages import Command, Event, Query
 from wibbley.event_driven.queue import wibbley_queue
+from wibbley.utilities.async_retry import AsyncRetry
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class Messagebus(AbstractMessagebus):
         self.command_handlers = {}
         self.query_handlers = {}
         self.queue = wibbley_queue
+        self.async_retry = AsyncRetry()
 
     def is_function(self, obj):
         if callable(obj):
@@ -83,30 +85,59 @@ class Messagebus(AbstractMessagebus):
 
         return decorator
 
+    async def execute_event_handler(self, handler, message):
+        @self.async_retry
+        async def inner_handler(message):
+            await handler(message)
+
+        await inner_handler(message)
+
     async def handle(self, message):
         if isinstance(message, Command):
             if not self.command_handlers.get(type(message)):
-                raise ValueError(f"No command handler registered for {type(message)}")
+                LOGGER.error(f"No command handler registered for {type(message)}")
+                return False
             command_handler = self.command_handlers[type(message)]
-            await command_handler(message)
+            try:
+                await command_handler(message)
+            except Exception as e:
+                LOGGER.exception(
+                    f"Command could not be handled by handler: {command_handler} for command: {message}"
+                )
+                raise e
             return True
         elif isinstance(message, Event):
             if not self.event_handlers.get(type(message)):
-                raise ValueError(f"No event handler registered for {type(message)}")
+                LOGGER.error(f"No event handler registered for {type(message)}")
+                return False
             for event_handler in self.event_handlers[type(message)]:
-                await event_handler(message)
+                try:
+                    await self.execute_event_handler(event_handler, message)
+                except Exception:
+                    LOGGER.exception(
+                        f"Event could not be handled by handler: {event_handler} for event: {message}"
+                    )
+                    continue
             return True
         elif isinstance(message, Query):
             if not self.query_handlers.get(type(message)):
-                raise ValueError(f"No query handler registered for {type(message)}")
+                LOGGER.error(f"No query handler registered for {type(message)}")
+                return None
             query_handler = self.query_handlers[type(message)]
-            result = await query_handler(message)
+            try:
+                result = await query_handler(message)
+            except Exception as e:
+                LOGGER.exception(
+                    f"Query could not be handled by handler: {query_handler} for query: {message}"
+                )
+                raise e
             return result
         else:
-            raise ValueError(f"Unknown message type: {type(message)}")
+            LOGGER.error(f"Unknown message type: {type(message)}")
+            return False
 
     async def handle_queue(self):
-        message = self.queue.get_nowait()
+        message = await self.queue.get()
         await self.handle(message)
         self.queue.task_done()
 
