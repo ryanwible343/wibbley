@@ -14,6 +14,7 @@ from wibbley.api.http_handler.request_handlers.options_request_handler import (
     OptionsRequestHandler,
 )
 from wibbley.api.http_handler.request_handlers.response_sender import ResponseSender
+from wibbley.api.http_handler.route_extractor import RouteExtractor
 from wibbley.api.http_handler.router import Router
 
 
@@ -32,6 +33,7 @@ class App:
             ),
             default_request_handler=DefaultRequestHandler(ResponseSender(orjson)),
             event_handling_settings=EventHandlingSettings(),
+            route_extractor=RouteExtractor(),
         ),
     ):
         self.http_handler = http_handler

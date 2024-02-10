@@ -1,4 +1,5 @@
 import logging
+import re
 
 from wibbley.api.http_handler.event_handling import EventHandlingSettings
 from wibbley.api.http_handler.request import HTTPRequestConstructor
@@ -12,6 +13,7 @@ from wibbley.api.http_handler.request_handlers.options_request_handler import (
     OptionsRequestHandler,
 )
 from wibbley.api.http_handler.request_handlers.response_sender import ResponseSender
+from wibbley.api.http_handler.route_extractor import RouteExtractor
 from wibbley.api.http_handler.router import Router
 
 LOGGER = logging.getLogger(__name__)
@@ -27,6 +29,7 @@ class HTTPHandler:
         head_request_handler: HeadRequestHandler,
         default_request_handler: DefaultRequestHandler,
         event_handling_settings: EventHandlingSettings,
+        route_extractor: RouteExtractor,
     ):
         self.router = router
         self.response_sender = response_sender
@@ -35,14 +38,19 @@ class HTTPHandler:
         self.http_request_constructor = http_request_constructor
         self.default_request_handler = default_request_handler
         self.event_handling_settings = event_handling_settings
+        self.route_extractor = route_extractor
 
     async def handle(self, scope, receive, send):
         path = scope["path"]
         method = scope["method"]
         headers = scope["headers"]
         query_string = scope["query_string"]
-        route_func = self.router.routes.get(path, {}).get(method, None)
-        available_methods = self.router.routes.get(path, {}).keys()
+        route_info = self.route_extractor.extract(
+            routes=self.router.routes, request_path=path, request_method=method
+        )
+        available_methods = route_info.available_methods
+        route_func = route_info.route_func
+        path_parameters = route_info.path_parameters
 
         if len(available_methods) == 0:
             return await self.response_sender.send_response(
@@ -101,7 +109,7 @@ class HTTPHandler:
         try:
             result = await route_func(request=http_request)
         except Exception as e:
-            LOGGER.exception(e, exc_info=True)
+            LOGGER.exception(e)
             await self.response_sender.send_response(
                 send,
                 status_code=500,

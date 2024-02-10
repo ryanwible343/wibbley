@@ -3,14 +3,6 @@ import pytest
 from wibbley.utilities.async_retry import AsyncRetry
 
 
-class FakeClass:
-    def __init__(self):
-        self.attempts = 0
-
-    async def handle(self):
-        self.attempts += 1
-
-
 @pytest.mark.asyncio
 async def test__async_retry__retries_up_to_max_attempts():
     # Arrange

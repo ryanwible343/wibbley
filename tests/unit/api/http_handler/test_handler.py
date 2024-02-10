@@ -1,6 +1,7 @@
 import pytest
 
 from wibbley.api.http_handler.handler import HTTPHandler
+from wibbley.api.http_handler.route_extractor import RouteExtractor
 
 
 class FakeRouter:
@@ -98,6 +99,7 @@ async def test__http_handler_handle__when_no_available_methods__sends_404_respon
         head_request_handler=FakeHeadRequestHandler(FakeResponseSender()),
         default_request_handler=FakeDefaultRequestHandler(FakeResponseSender()),
         event_handling_settings=FakeEventHandlingSettings(),
+        route_extractor=RouteExtractor(),
     )
     scope = {
         "path": "/path",
@@ -125,6 +127,7 @@ async def test__http_handler_handle__when_route_func_is_none__sends_405_response
         head_request_handler=FakeHeadRequestHandler(FakeResponseSender()),
         default_request_handler=FakeDefaultRequestHandler(FakeResponseSender()),
         event_handling_settings=FakeEventHandlingSettings(),
+        route_extractor=RouteExtractor(),
     )
     scope = {
         "path": "/path",
@@ -153,6 +156,7 @@ async def test__http_handler_handle__when_method_is_OPTIONS__calls_options_reque
         head_request_handler=FakeHeadRequestHandler(FakeResponseSender()),
         default_request_handler=FakeDefaultRequestHandler(FakeResponseSender()),
         event_handling_settings=FakeEventHandlingSettings(),
+        route_extractor=RouteExtractor(),
     )
     scope = {
         "path": "/path",
@@ -180,6 +184,7 @@ async def test__http_handler_handle__when_method_is_default__executes_route_func
         head_request_handler=FakeHeadRequestHandler(FakeResponseSender()),
         default_request_handler=FakeDefaultRequestHandler(FakeResponseSender()),
         event_handling_settings=FakeEventHandlingSettings(),
+        route_extractor=RouteExtractor(),
     )
     scope = {
         "path": "/path",
@@ -206,6 +211,7 @@ async def test__http_handler_handle__when_method_is_head_with_no_get__sends_405_
         head_request_handler=FakeHeadRequestHandler(FakeResponseSender()),
         default_request_handler=FakeDefaultRequestHandler(FakeResponseSender()),
         event_handling_settings=FakeEventHandlingSettings(),
+        route_extractor=RouteExtractor(),
     )
     scope = {
         "path": "/path",
@@ -242,6 +248,7 @@ async def test__http_handler_handle__when_method_is_head__calls_head_request_han
         head_request_handler=head_request_handler,
         default_request_handler=FakeDefaultRequestHandler(FakeResponseSender()),
         event_handling_settings=FakeEventHandlingSettings(),
+        route_extractor=RouteExtractor(),
     )
     scope = {
         "path": "/path",
@@ -276,6 +283,7 @@ async def test__http_handler_handle__when_method_is_default__calls_default_reque
         head_request_handler=FakeHeadRequestHandler(FakeResponseSender()),
         default_request_handler=default_request_handler,
         event_handling_settings=FakeEventHandlingSettings(),
+        route_extractor=RouteExtractor(),
     )
     scope = {
         "path": "/path",

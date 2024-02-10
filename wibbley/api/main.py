@@ -1,6 +1,5 @@
 import asyncio
 import importlib.util
-import logging
 import os
 import signal
 import ssl
@@ -17,15 +16,14 @@ from wibbley.event_driven.queue import wibbley_queue
 SIGNAL_HANDLERS = [SIGINT, SIGTERM]
 DEFAULT_EVENT_HANDLER_TASK_COUNT = 100
 TRACE_LOG_LEVEL = 5
-LOG_LEVELS: dict[str, int] = {
-    "critical": logging.CRITICAL,
-    "error": logging.ERROR,
-    "warning": logging.WARNING,
-    "info": logging.INFO,
-    "debug": logging.DEBUG,
-    "trace": TRACE_LOG_LEVEL,
-}
-LOG_LEVEL_CHOICES = click.Choice(list(LOG_LEVELS.keys()))
+LOG_LEVEL_CHOICES = [
+    "critical",
+    "error",
+    "warning",
+    "info",
+    "debug",
+    "trace",
+]
 
 
 def load_module(module_path: str):
