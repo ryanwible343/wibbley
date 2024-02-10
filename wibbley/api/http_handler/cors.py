@@ -11,12 +11,12 @@ class CORSSettings:
 
     @property
     def serialized_allow_origins(self):
-        return b",".join([origin.encode("utf-8") for origin in self.allow_origins])
+        return b", ".join([origin.encode("utf-8") for origin in self.allow_origins])
 
     @property
     def serialized_allow_methods(self):
-        return b",".join([method.encode("utf-8") for method in self.allow_methods])
+        return b", ".join([method.encode("utf-8") for method in self.allow_methods])
 
     @property
     def serialized_allow_headers(self):
-        return b",".join([header.encode("utf-8") for header in self.allow_headers])
+        return b", ".join([header.encode("utf-8") for header in self.allow_headers])

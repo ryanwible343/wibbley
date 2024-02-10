@@ -27,7 +27,7 @@ class DefaultRequestHandler:
                 send,
                 status_code=route_func_result.status_code,
                 headers=route_func_result.headers,
-                response_body=route_func_result.response_body,
+                response_body=route_func_result.body,
             )
 
         content_type_header = self._determine_content_type_header(route_func_result)

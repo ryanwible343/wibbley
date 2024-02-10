@@ -9,7 +9,7 @@ def test__serialized_allow_origins__returns_byte_string():
     )
     assert (
         cors_settings.serialized_allow_origins
-        == b"http://example.com,http://example.org"
+        == b"http://example.com, http://example.org"
     )
 
 
@@ -19,7 +19,7 @@ def test__serialized_allow_methods__returns_byte_string():
         allow_methods=["GET", "POST"],
         allow_headers=[],
     )
-    assert cors_settings.serialized_allow_methods == b"GET,POST"
+    assert cors_settings.serialized_allow_methods == b"GET, POST"
 
 
 def test__serialized_allow_headers__returns_byte_string():
@@ -28,4 +28,4 @@ def test__serialized_allow_headers__returns_byte_string():
         allow_methods=[],
         allow_headers=["Content-Type", "Authorization"],
     )
-    assert cors_settings.serialized_allow_headers == b"Content-Type,Authorization"
+    assert cors_settings.serialized_allow_headers == b"Content-Type, Authorization"
