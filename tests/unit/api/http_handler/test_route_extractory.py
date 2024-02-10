@@ -98,3 +98,22 @@ def test__route_extractor_extract__when_matching_route_with_no_route_func_for_re
     assert route_info.route_func is None
     assert route_info.available_methods == {"GET"}
     assert route_info.path_parameters == {"id": "123"}
+
+
+def test__route_extractor_extract__when_no_path_parameters__returns_route_func_and_available_methods():
+    # ARRANGE
+    async def fake_route_func(scope, receive, send):
+        pass
+
+    route_extractor = RouteExtractor()
+    routes = {"/api/v1": {"GET": fake_route_func}}
+    request_path = "/api/v1"
+    request_method = "GET"
+
+    # ACT
+    route_info = route_extractor.extract(routes, request_path, request_method)
+
+    # ASSERT
+    assert route_info.route_func is fake_route_func
+    assert route_info.available_methods == {"GET"}
+    assert len(route_info.path_parameters) == 0
