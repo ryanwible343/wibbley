@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 
+from wibbley.event_driven.delivery_provider import DeliveryProvider
 from wibbley.event_driven.messages import Command, Event, Query
 from wibbley.event_driven.queue import wibbley_queue
 from wibbley.utilities.async_retry import AsyncRetry
@@ -21,6 +22,7 @@ class Messagebus(AbstractMessagebus):
         self.query_handlers = {}
         self.queue = wibbley_queue
         self.async_retry = AsyncRetry()
+        self.delivery_provider = DeliveryProvider()
 
     def is_function(self, obj):
         if callable(obj):
@@ -91,6 +93,9 @@ class Messagebus(AbstractMessagebus):
             await handler(message)
 
         await inner_handler(message)
+
+    def enable_exactly_once_processing(self, handler):
+        self.delivery_provider.enable_exactly_once_processing(handler)
 
     async def handle(self, message):
         if isinstance(message, Command):
