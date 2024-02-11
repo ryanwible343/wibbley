@@ -29,6 +29,42 @@ LOG_LEVEL_CHOICES = click.Choice(list(LOG_LEVELS.keys()))
 
 
 LOGGER = logging.getLogger("wibbley")
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "()": "uvicorn.logging.DefaultFormatter",
+            "fmt": "%(levelprefix)s %(message)s",
+            "use_colors": None,
+        },
+        "access": {
+            "()": "uvicorn.logging.AccessFormatter",
+            "fmt": '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',  # noqa: E501
+        },
+    },
+    "handlers": {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+        "access": {
+            "formatter": "access",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "loggers": {
+        "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"level": "INFO"},
+        "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
+        "wibbley": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "": {"handlers": ["default"], "level": "INFO", "propagate": False},
+    },
+}
+logging.config.dictConfig(LOGGING_CONFIG)
+LOGGER = logging.getLogger("wibbley")
 
 
 def load_module(module_path: str):
@@ -57,10 +93,16 @@ def load_module(module_path: str):
         return None
 
 
+async def handle_message(queue, messagebus):
+    message = await queue.get()
+    await messagebus.handle(message)
+    queue.task_done()
+
+
 async def read_from_queue(queue: asyncio.Queue, messagebus):
     while True:
         try:
-            await messagebus.handle_queue()
+            await handle_message(queue, messagebus)
         except asyncio.CancelledError:
             break
 
@@ -419,18 +461,16 @@ def main(
 ):
     current_dir = os.getcwd()
     sys.path.insert(0, current_dir)
-    print("current_dir", current_dir)
+    LOGGER.info("App Started")
 
     loaded_app = load_module(app)
     if not loaded_app:
-        print("Failed to load ASGI application")
         return
 
     loaded_messagebus = None
     if messagebus:
         loaded_messagebus = load_module(messagebus)
         if not loaded_messagebus:
-            print("Failed to load messagebus")
             return
 
     uvloop.install()

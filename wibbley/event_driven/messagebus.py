@@ -20,7 +20,6 @@ class Messagebus(AbstractMessagebus):
         self.event_handlers = {}
         self.command_handlers = {}
         self.query_handlers = {}
-        self.queue = wibbley_queue
         self.async_retry = AsyncRetry()
         self.delivery_provider = DeliveryProvider()
 
@@ -140,11 +139,6 @@ class Messagebus(AbstractMessagebus):
         else:
             LOGGER.error(f"Unknown message type: {type(message)}")
             return False
-
-    async def handle_queue(self):
-        message = await self.queue.get()
-        await self.handle(message)
-        self.queue.task_done()
 
 
 async def send(message, queue=wibbley_queue):

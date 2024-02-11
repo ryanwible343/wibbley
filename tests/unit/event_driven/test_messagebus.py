@@ -345,23 +345,6 @@ async def test__messagebus_handle__when_message_type_unknown__returns_false():
 
 
 @pytest.mark.asyncio
-async def test__messagebus_handle_queue__pops_message_off_queue_and_handles():
-    # Arrange
-    messagebus = Messagebus()
-    messagebus.queue.put_nowait(Command())
-
-    @messagebus.listen(Command)
-    async def fake_function(message):
-        return True
-
-    # Act
-    await messagebus.handle_queue()
-
-    # Assert
-    assert messagebus.queue.empty() == True
-
-
-@pytest.mark.asyncio
 async def test__send__puts_message_on_queue():
     # ARRANGE
     queue = asyncio.Queue()

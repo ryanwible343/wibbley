@@ -1,0 +1,27 @@
+version: "3"
+services:
+  wibbley:
+    image: wibbley
+    build:
+      context: ../../
+      dockerfile: examples/durable_messagebus/Dockerfile
+      target: dev
+    command: wibbley --app src.app:app --messagebus src.messagebus:messagebus --host 0.0.0.0
+    depends_on:
+      - postgres
+    environment:
+      - POSTGRES_URI=local:local@postgres/local
+      - PYTHONDONTWRITEBYTECODE=1
+    volumes:
+      - ./src:/app/src
+      - ../../.:/wibbley_module/.
+    ports:
+      - "8000:8000"
+
+  postgres:
+    image: postgres:15.2
+    environment:
+      - POSTGRES_USER=local
+      - POSTGRES_PASSWORD=local
+    ports:
+      - "5432:5432"

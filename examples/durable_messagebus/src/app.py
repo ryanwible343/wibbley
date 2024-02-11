@@ -1,4 +1,4 @@
-from messagebus import MyCommand, messagebus
+from src.messagebus import MyCommand, messagebus
 
 from wibbley.api import App
 
