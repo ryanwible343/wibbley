@@ -1,8 +1,16 @@
 import logging
 
+from src.database import engine
+
 from wibbley.event_driven import Command, Event, Messagebus, send
 
 messagebus = Messagebus()
+messagebus.enable_exactly_once_processing(
+    db_name="postgres",
+    connection_factory=engine,
+    run_async=True,
+)
+
 
 LOGGER = logging.getLogger(__name__)
 

@@ -52,14 +52,22 @@ class DeliveryProvider:
         pass
 
     async def execute_async(self, connection_factory, stmt):
+        connection_factory_type = type(connection_factory).__module__
         connection = await connection_factory.connect()
-        await connection.execute(stmt)
+        if "sqlalchemy" in connection_factory_type:
+            await connection.exec_driver_sql(stmt)
+        else:
+            await connection.execute(stmt)
         await connection.commit()
         await connection.close()
 
     def execute_sync(self, connection_factory, stmt):
+        connection_factory_type = type(connection_factory).__module__
         connection = connection_factory.connect()
-        connection.execute(stmt)
+        if "sqlalchemy" in connection_factory_type:
+            connection.exec_driver_sql(stmt)
+        else:
+            connection.execute(stmt)
         connection.commit()
         connection.close()
 
@@ -79,21 +87,8 @@ class DeliveryProvider:
             schema_stmt = """
                 CREATE SCHEMA IF NOT EXISTS wibbley;
             """
-            outbox_stmt = """
-                CREATE TABLE IF NOT EXISTS wibbley.outbox (
-                    id UUID PRIMARY KEY,
-                    created_at TIMESTAMPTZ,
-                    event JSONB,
-                    delivered BOOLEAN
-                );
-            """
-            inbox_stmt = """
-                CREATE TABLE IF NOT EXISTS wibbley.inbox (
-                    id UUID PRIMARY KEY,
-                    created_at TIMESTAMPTZ,
-                    event JSONB,
-                );
-            """
+            outbox_stmt = "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN)"
+            inbox_stmt = "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB)"
         if run_async:
             asyncio.gather(
                 self.execute_async(connection_factory, schema_stmt),

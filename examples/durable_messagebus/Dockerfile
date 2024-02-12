@@ -5,4 +5,7 @@ RUN mkdir wibbley_module
 COPY . ./wibbley_module
 WORKDIR /wibbley_module
 RUN pip install -e .
+RUN pip install sqlalchemy
+RUN pip install psycopg2-binary
+RUN pip install asyncpg
 WORKDIR /app

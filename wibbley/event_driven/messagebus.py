@@ -1,7 +1,12 @@
 import logging
 from abc import ABC, abstractmethod
+from typing import Literal, Union
 
-from wibbley.event_driven.delivery_provider import DeliveryProvider
+from wibbley.event_driven.delivery_provider import (
+    AsyncConnectionFactory,
+    ConnectionFactory,
+    DeliveryProvider,
+)
 from wibbley.event_driven.messages import Command, Event, Query
 from wibbley.event_driven.queue import wibbley_queue
 from wibbley.utilities.async_retry import AsyncRetry
@@ -93,8 +98,15 @@ class Messagebus(AbstractMessagebus):
 
         await inner_handler(message)
 
-    def enable_exactly_once_processing(self, handler):
-        self.delivery_provider.enable_exactly_once_processing(handler)
+    def enable_exactly_once_processing(
+        self,
+        db_name: Literal["postgres"],
+        connection_factory: Union[AsyncConnectionFactory, ConnectionFactory],
+        run_async: bool = False,
+    ):
+        self.delivery_provider.enable_exactly_once_processing(
+            db_name, connection_factory, run_async
+        )
 
     async def handle(self, message):
         if isinstance(message, Command):
