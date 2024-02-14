@@ -1,16 +1,18 @@
-from sqlalchemy import Column, DateTime, Index, PrimaryKeyConstraint, String, Table
+from sqlalchemy import Column, Integer, String, Table
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import registry
+from src.model import Shape
 
 mapper_registry = registry()
 
-submission = Table(
-    "submission",
+shape = Table(
+    "shape",
     mapper_registry.metadata,
-    Column("submission_id", String),
-    Column("user_id", String),
-    Column("file_path", String, nullable=False),
-    Column("datetime_created", DateTime, nullable=False),
-    Column("status", String, nullable=False),
-    PrimaryKeyConstraint("submission_id", "user_id"),
-    Index("submission_user_id_idx", "user_id"),
+    Column("id", UUID, primary_key=True),
+    Column("type", String),
+    Column("volume", Integer),
 )
+
+
+def map_orm_to_model():
+    mapper_registry.map_imperatively(Shape, shape)

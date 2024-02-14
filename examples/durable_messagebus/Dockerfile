@@ -8,4 +8,5 @@ RUN pip install -e .
 RUN pip install sqlalchemy
 RUN pip install psycopg2-binary
 RUN pip install asyncpg
+RUN pip install alembic
 WORKDIR /app

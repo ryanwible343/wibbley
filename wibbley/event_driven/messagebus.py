@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from functools import wraps
 from typing import Literal, Union
 
 from wibbley.event_driven.delivery_provider import (
@@ -93,6 +94,7 @@ class Messagebus(AbstractMessagebus):
 
     async def execute_event_handler(self, handler, message):
         @self.async_retry
+        @wraps(handler)
         async def inner_handler(message):
             await handler(message)
 
@@ -104,6 +106,7 @@ class Messagebus(AbstractMessagebus):
         connection_factory: Union[AsyncConnectionFactory, ConnectionFactory],
         run_async: bool = False,
     ):
+        print("enabling exactly once processing")
         self.delivery_provider.enable_exactly_once_processing(
             db_name, connection_factory, run_async
         )
