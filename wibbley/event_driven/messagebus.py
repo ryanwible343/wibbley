@@ -3,10 +3,11 @@ from abc import ABC, abstractmethod
 from functools import wraps
 from typing import Literal, Union
 
-from wibbley.event_driven.delivery_provider import (
+from wibbley.event_driven.delivery_provider import delivery_provider_adapter_name
+from wibbley.event_driven.delivery_provider.delivery_provider import (
     AsyncConnectionFactory,
     ConnectionFactory,
-    DeliveryProvider,
+    enable_exactly_once_processing,
 )
 from wibbley.event_driven.messages import Command, Event, Query
 from wibbley.event_driven.queue import wibbley_queue
@@ -27,7 +28,7 @@ class Messagebus(AbstractMessagebus):
         self.command_handlers = {}
         self.query_handlers = {}
         self.async_retry = AsyncRetry()
-        self.delivery_provider = DeliveryProvider()
+        self.is_durable = False
 
     def is_function(self, obj):
         if callable(obj):
@@ -100,16 +101,17 @@ class Messagebus(AbstractMessagebus):
 
         await inner_handler(message)
 
-    def enable_exactly_once_processing(
+    async def enable_exactly_once_processing(self):
+        await enable_exactly_once_processing(self.connection_factory)
+
+    def add_durability(
         self,
-        db_name: Literal["postgres"],
+        adapter: Literal["sqlalchemy+asyncpg",],
         connection_factory: Union[AsyncConnectionFactory, ConnectionFactory],
-        run_async: bool = False,
     ):
-        print("enabling exactly once processing")
-        self.delivery_provider.enable_exactly_once_processing(
-            db_name, connection_factory, run_async
-        )
+        self.connection_factory = connection_factory
+        self.is_durable = True
+        delivery_provider_adapter_name.set_delivery_provider_adapter(adapter)
 
     async def handle(self, message):
         if isinstance(message, Command):

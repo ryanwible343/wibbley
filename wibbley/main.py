@@ -203,6 +203,9 @@ async def serve_app(
     server = uvicorn.Server(config)
     event_handler_tasks = []
     if messagebus:
+        if messagebus.is_durable:
+            asyncio.create_task(messagebus.enable_exactly_once_processing())
+            asyncio.gather(*event_handler_tasks)
         event_handler_tasks = [
             asyncio.create_task(read_from_queue(wibbley_queue, messagebus))
             for _ in range(task_count)

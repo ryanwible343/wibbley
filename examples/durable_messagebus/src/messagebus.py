@@ -5,13 +5,20 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.database import engine, sync_engine
 from src.model import Shape
 
-from wibbley.event_driven import Command, Event, Messagebus, ack, publish, stage
+from wibbley.event_driven import (
+    Command,
+    Event,
+    Messagebus,
+    ack,
+    is_duplicate,
+    publish,
+    stage,
+)
 
 messagebus = Messagebus()
-messagebus.enable_exactly_once_processing(
-    db_name="postgres",
-    connection_factory=sync_engine,
-    run_async=False,
+messagebus.add_durability(
+    adapter="sqlalchemy+asyncpg",
+    connection_factory=engine,
 )
 
 
@@ -41,6 +48,11 @@ async def my_command_listener(command):
 @messagebus.listen(SquareCreatedEvent)
 class MyEventListener:
     async def handle(self, event):
-        LOGGER.info(f"Event received: {event.id}")
-        ack(event)
-        return None
+        sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+        async with sessionmaker() as session:
+            if await is_duplicate(event, session):
+                LOGGER.info(f"Event already processed: {event.id}")
+                return None
+            LOGGER.info(f"Event received: {event.id}")
+            ack(event)
+            return None
