@@ -3,11 +3,13 @@ from abc import ABC, abstractmethod
 from functools import wraps
 from typing import Literal, Union
 
-from wibbley.event_driven.delivery_provider import delivery_provider_adapter_name
 from wibbley.event_driven.delivery_provider.delivery_provider import (
     AsyncConnectionFactory,
     ConnectionFactory,
     enable_exactly_once_processing,
+)
+from wibbley.event_driven.delivery_provider.delivery_provider_adapter_global import (
+    delivery_provider_adapter,
 )
 from wibbley.event_driven.messages import Command, Event, Query
 from wibbley.event_driven.queue import wibbley_queue
@@ -111,7 +113,7 @@ class Messagebus(AbstractMessagebus):
     ):
         self.connection_factory = connection_factory
         self.is_durable = True
-        delivery_provider_adapter_name.set_delivery_provider_adapter(adapter)
+        delivery_provider_adapter["name"] = adapter
 
     async def handle(self, message):
         if isinstance(message, Command):
