@@ -85,7 +85,8 @@ Run the application:
 wibbley --app app:app --messagebus messagebus:messagebus
 ```
 # In-Depth Examples
-For more in-depth examples, including using the inbox/outbox pattern. Please see the examples directory.
+For more in-depth examples, including using the inbox/outbox pattern. Please see the examples
+directory. Each example is containerized and can be run using docker compose.
 
 # Dependencies
 - [uvloop](https://github.com/MagicStack/uvloop)
