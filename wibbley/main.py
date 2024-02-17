@@ -70,7 +70,7 @@ LOGGER = logging.getLogger("wibbley")
 def load_module(module_path: str):
     components = module_path.split(":")
     if len(components) != 2:
-        print(
+        LOGGER.error(
             f"Invalid module path, path should contain exactly one colon. You passed: {module_path}"
         )
         return None
@@ -89,7 +89,9 @@ def load_module(module_path: str):
         variable = getattr(module, variable_name)
         return variable
     else:
-        print(f"Module '{module_path}' does not contain attribute '{variable_name}'")
+        LOGGER.error(
+            f"Module '{module_path}' does not contain attribute '{variable_name}'"
+        )
         return None
 
 
@@ -113,14 +115,22 @@ def shutdown_handler(server: uvicorn.Server, tasks, sig):
     server.handle_exit(sig, None)
 
 
+class SignalHandlerInstaller:
+    def install(self, loop, sig, shutdown_handler, server, tasks):
+        loop.add_signal_handler(sig, shutdown_handler, server, tasks, sig)
+
+
 def install_signal_handlers(
-    server: uvicorn.Server, tasks, loop: asyncio.AbstractEventLoop
+    server: uvicorn.Server,
+    tasks,
+    loop: asyncio.AbstractEventLoop,
+    signal_handler_installer=SignalHandlerInstaller(),
 ):
     SIGNAL_HANDLERS = [SIGINT, SIGTERM]
     server.install_signal_handlers = lambda: None
     try:
         for sig in [SIGINT, SIGTERM]:
-            loop.add_signal_handler(sig, shutdown_handler, server, tasks, sig)
+            signal_handler_installer.install(loop, sig, shutdown_handler, server, tasks)
     except NotImplementedError:  # pragma: no cover
         # Windows
         for sig in [SIGINT, SIGTERM]:
@@ -164,6 +174,7 @@ async def serve_app(
     ssl_ciphers: str,
     headers: list[str],
     h11_max_incomplete_event_size: int | None,
+    server_cls: uvicorn.Server = uvicorn.Server,
 ):
     loop = asyncio.get_event_loop()
     config = uvicorn.Config(
@@ -200,7 +211,7 @@ async def serve_app(
         headers=[header.split(":", 1) for header in headers],
         h11_max_incomplete_event_size=h11_max_incomplete_event_size,
     )
-    server = uvicorn.Server(config)
+    server = server_cls(config)
     event_handler_tasks = []
     if messagebus:
         if messagebus.is_durable:
@@ -464,7 +475,6 @@ def main(
 ):
     current_dir = os.getcwd()
     sys.path.insert(0, current_dir)
-    LOGGER.info("App Started")
 
     loaded_app = load_module(app)
     if not loaded_app:
