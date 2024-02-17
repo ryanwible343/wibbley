@@ -299,3 +299,44 @@ async def test__http_handler_handle__when_method_is_default__calls_default_reque
 
     # ASSERT
     assert default_request_handler.calls[0]["result"] == "test"
+
+
+@pytest.mark.asyncio
+async def test__http_handler_handle__when_route_func_raises_exception__sends_500_response():
+    # ARRANGE
+    async def route_func(request):
+        raise Exception("Some error")
+
+    default_request_handler = FakeDefaultRequestHandler(FakeResponseSender())
+    http_handler = HTTPHandler(
+        router=FakeRouter(
+            routes={
+                "/path": {
+                    "GET": route_func,
+                }
+            }
+        ),
+        response_sender=FakeResponseSender(),
+        options_request_handler=FakeOptionsRequestHandler(),
+        http_request_constructor=FakeHTTPRequestConstructor(),
+        head_request_handler=FakeHeadRequestHandler(FakeResponseSender()),
+        default_request_handler=default_request_handler,
+        event_handling_settings=FakeEventHandlingSettings(),
+        route_extractor=RouteExtractor(),
+    )
+    scope = {
+        "path": "/path",
+        "method": "GET",
+        "headers": {},
+        "query_string": b"",
+    }
+
+    # ACT
+    await http_handler.handle(scope, None, fake_send)
+
+    # ASSERT
+    assert len(http_handler.response_sender.calls) == 1
+    assert http_handler.response_sender.calls[0]["status_code"] == 500
+    assert http_handler.response_sender.calls[0]["response_body"] == {
+        "detail": "Internal Server Error"
+    }

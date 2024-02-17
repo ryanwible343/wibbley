@@ -112,3 +112,89 @@ async def test__router_patch__adds_patch_to_routes():
 
     # ASSERT
     assert result["PATCH"].__name__ == "test_func"
+
+
+@pytest.mark.asyncio
+async def test__router_get__when_path_already_has_routes__adds_head_and_get_to_routes():
+    # ARRANGE
+    router = Router()
+    router.routes["/"] = {"POST": None}
+
+    @router.get("/")
+    async def test_func():
+        pass
+
+    # ACT
+    result = router.routes["/"]
+
+    # ASSERT
+    assert result["GET"].__name__ == "test_func"
+    assert result["HEAD"].__name__ == "test_func"
+
+
+@pytest.mark.asyncio
+async def test__router_post__when_path_already_has_routes__adds_post_to_routes():
+    # ARRANGE
+    router = Router()
+    router.routes["/"] = {"GET": None}
+
+    @router.post("/")
+    async def test_func():
+        pass
+
+    # ACT
+    result = router.routes["/"]
+
+    # ASSERT
+    assert result["POST"].__name__ == "test_func"
+
+
+@pytest.mark.asyncio
+async def test__router_put__when_path_already_has_routes__adds_put_to_routes():
+    # ARRANGE
+    router = Router()
+    router.routes["/"] = {"GET": None}
+
+    @router.put("/")
+    async def test_func():
+        pass
+
+    # ACT
+    result = router.routes["/"]
+
+    # ASSERT
+    assert result["PUT"].__name__ == "test_func"
+
+
+@pytest.mark.asyncio
+async def test__router_delete__when_path_already_has_routes__adds_delete_to_routes():
+    # ARRANGE
+    router = Router()
+    router.routes["/"] = {"GET": None}
+
+    @router.delete("/")
+    async def test_func():
+        pass
+
+    # ACT
+    result = router.routes["/"]
+
+    # ASSERT
+    assert result["DELETE"].__name__ == "test_func"
+
+
+@pytest.mark.asyncio
+async def test__router_patch__when_path_already_has_routes__adds_patch_to_routes():
+    # ARRANGE
+    router = Router()
+    router.routes["/"] = {"GET": None}
+
+    @router.patch("/")
+    async def test_func():
+        pass
+
+    # ACT
+    result = router.routes["/"]
+
+    # ASSERT
+    assert result["PATCH"].__name__ == "test_func"

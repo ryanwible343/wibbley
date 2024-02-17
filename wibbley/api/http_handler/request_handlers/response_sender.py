@@ -5,7 +5,7 @@ from typing import Coroutine
 class JSONSerializer(ABC):
     @abstractmethod
     def dumps(self, obj) -> bytes:
-        raise NotImplementedError
+        """Serialize an object to a json byte string."""
 
 
 class ResponseSender:

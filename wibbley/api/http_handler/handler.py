@@ -111,7 +111,7 @@ class HTTPHandler:
             result = await route_func(request=http_request)
         except Exception as e:
             LOGGER.exception(e)
-            await self.response_sender.send_response(
+            return await self.response_sender.send_response(
                 send,
                 status_code=500,
                 headers=[
@@ -119,7 +119,6 @@ class HTTPHandler:
                 ],
                 response_body={"detail": "Internal Server Error"},
             )
-            return
 
         if method == "HEAD":
             await self.head_request_handler.handle(send, result)
