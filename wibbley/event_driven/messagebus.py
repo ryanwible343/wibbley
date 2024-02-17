@@ -18,13 +18,7 @@ from wibbley.utilities.async_retry import AsyncRetry
 LOGGER = logging.getLogger(__name__)
 
 
-class AbstractMessagebus(ABC):
-    @abstractmethod
-    async def handle(self, message):
-        raise NotImplementedError
-
-
-class Messagebus(AbstractMessagebus):
+class Messagebus:
     def __init__(self):
         self.event_handlers = {}
         self.command_handlers = {}
@@ -90,8 +84,6 @@ class Messagebus(AbstractMessagebus):
                 return function_decorator(decorated)
             elif self.is_class(decorated):
                 return class_decorator(decorated)
-            else:
-                raise ValueError(f"Unknown type decorated: {type(decorated)}")
 
         return decorator
 

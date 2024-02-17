@@ -23,51 +23,51 @@ ALLOWED_ADAPTERS = {
 class AsyncConnection(ABC):
     @abstractmethod
     async def execute(self, stmt):
-        pass
+        """Execute a text string sql statement on the connection.."""
 
     @abstractmethod
     async def close(self):
-        pass
+        """Close the connection."""
 
     @abstractmethod
     async def commit(self):
-        pass
+        """Commit the current transaction."""
 
 
 class AsyncConnectionFactory(ABC):
     @abstractmethod
     async def connect(self) -> AsyncConnection:
-        pass
+        """Return a new AsyncConnection."""
 
 
 class Connection(ABC):
     @abstractmethod
     def execute(self, stmt):
-        pass
+        """Execute a text string sql statement on the connection."""
 
     @abstractmethod
     def close(self):
-        pass
+        """Close the connection."""
 
     @abstractmethod
     def commit(self):
-        pass
+        """Commit the current transaction."""
 
 
 class ConnectionFactory(ABC):
     @abstractmethod
     def connect(self) -> Connection:
-        pass
+        """Return a new Connection"""
 
 
 class AbstractAsyncSession(ABC):
     @abstractmethod
     async def execute(self, stmt):
-        pass
+        """Execute a text string sql statement on the connection."""
 
     @abstractmethod
     async def commit(self):
-        pass
+        """Commit the current transaction."""
 
 
 async def enable_exactly_once_processing(

@@ -34,6 +34,17 @@ def test__messagebus_is_function__when_is_not_function__returns_false():
     assert result == False
 
 
+def test__messagebus_is_function__when_is_str__returns_false():
+    # Arrange
+    messagebus = Messagebus()
+
+    # Act
+    result = messagebus.is_function("test")
+
+    # Assert
+    assert result == False
+
+
 def test__messagebus_is_class__when_is_class__returns_true():
     # Arrange
     messagebus = Messagebus()
@@ -52,6 +63,17 @@ def test__messagebus_is_class__when_is_not_class__returns_false():
 
     # Act
     result = messagebus.is_class(obj)
+
+    # Assert
+    assert result == False
+
+
+def test__messagebus_is_class__when_is_str__returns_false():
+    # Arrange
+    messagebus = Messagebus()
+
+    # Act
+    result = messagebus.is_class("test")
 
     # Assert
     assert result == False
@@ -354,3 +376,70 @@ async def test__send__puts_message_on_queue():
 
     # ASSERT
     assert queue.empty() == False
+
+
+def test__messagebus_listen__when_message_type_unknown__raises_value_error():
+    # Arrange
+    messagebus = Messagebus()
+
+    # Act/Assert
+    with pytest.raises(ValueError) as e:
+
+        @messagebus.listen(FakeClass)
+        async def fake_function():
+            pass
+
+
+def test__messagebus_listen__when_class_decorated_command_handler_already_registered__raises_value_error():
+    # Arrange
+    messagebus = Messagebus()
+
+    # Act/Assert
+    with pytest.raises(ValueError) as e:
+
+        @messagebus.listen(Command)
+        class FakeClass:
+            def handle(self):
+                pass
+
+        @messagebus.listen(Command)
+        class AnotherFakeClass:
+            def handle(self):
+                pass
+
+
+def test__messagebus_listen__when_class_decorated_query_handler_already_registered__raises_value_error():
+    # Arrange
+    messagebus = Messagebus()
+
+    # Act/Assert
+    with pytest.raises(ValueError) as e:
+
+        @messagebus.listen(Query)
+        class FakeClass:
+            def handle(self):
+                pass
+
+        @messagebus.listen(Query)
+        class AnotherFakeClass:
+            def handle(self):
+                pass
+
+
+def test__messagebus_listen__when_class_decorated_event_handler_already_registered__appends_listener():
+    # Arrange
+    messagebus = Messagebus()
+
+    # Act
+    @messagebus.listen(Event)
+    class FakeClass:
+        def handle(self):
+            pass
+
+    @messagebus.listen(Event)
+    class AnotherFakeClass:
+        def handle(self):
+            pass
+
+    # Assert
+    assert len(messagebus.event_handlers[Event]) == 2
