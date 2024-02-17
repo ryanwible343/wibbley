@@ -16,11 +16,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.11'  # Choose your desired Python version
+          python-version: '3.11'
 
       - name: Install dependencies
         run: pip install poetry && poetry install --with dev
 
       - name: Run tests
         run: |
-          poetry run pytest tests
+          poetry run pytest --cov=wibbley tests --cov-fail-under=100
