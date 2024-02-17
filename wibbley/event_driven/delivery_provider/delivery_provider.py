@@ -2,6 +2,9 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Union
 
+from wibbley.event_driven.delivery_provider.adapters.abstract_adapter import (
+    AbstractAdapter,
+)
 from wibbley.event_driven.delivery_provider.adapters.sqlalchemy_asyncpg import (
     SQLAlchemyAsyncpgAdapter,
 )
@@ -67,44 +70,57 @@ class AbstractAsyncSession(ABC):
 
 async def enable_exactly_once_processing(
     connection_factory: Union[AsyncConnectionFactory, ConnectionFactory],
+    adapters: dict[str, AbstractAdapter] = {
+        "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter()
+    },
+    adapter_name: str = delivery_provider_adapter["name"],
 ):
-    adapter_name = delivery_provider_adapter["name"]
     if adapter_name not in ALLOWED_ADAPTERS:
         raise ValueError(f"Unknown adapter: {adapter_name}")
 
-    if adapter_name == "sqlalchemy+asyncpg":
-        sqlalchemy_asyncpg_adapter = SQLAlchemyAsyncpgAdapter()
-        return await sqlalchemy_asyncpg_adapter.enable_exactly_once_processing(
-            connection_factory
-        )
+    adapter = adapters[adapter_name]
+    return await adapter.enable_exactly_once_processing(connection_factory)
 
 
-async def stage(event: Event, session: AbstractAsyncSession):
-    adapter_name = delivery_provider_adapter["name"]
-    if adapter_name == "sqlalchemy+asyncpg":
-        sqlalchemy_asyncpg_adapter = SQLAlchemyAsyncpgAdapter()
-        return await sqlalchemy_asyncpg_adapter.stage(event, session)
+async def stage(
+    event: Event,
+    session: AbstractAsyncSession,
+    adapters: dict[str, AbstractAdapter] = {
+        "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter()
+    },
+    adapter_name: str = delivery_provider_adapter["name"],
+):
+    adapter = adapters[adapter_name]
+    return await adapter.stage(event, session)
 
 
-async def publish(event: Event, session: Union[AbstractAsyncSession, None] = None):
-    adapter_name = delivery_provider_adapter["name"]
-    if adapter_name == "sqlalchemy+asyncpg":
-        sqlalchemy_asyncpg_adapter = SQLAlchemyAsyncpgAdapter()
-        return await sqlalchemy_asyncpg_adapter.publish(event, session)
+async def publish(
+    event: Event,
+    session: Union[AbstractAsyncSession, None] = None,
+    adapters: dict[str, AbstractAdapter] = {
+        "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter()
+    },
+    adapter_name: str = delivery_provider_adapter["name"],
+):
+    adapter = adapters[adapter_name]
+    return await adapter.publish(event, session)
 
 
-async def is_duplicate(event: Event, session: AbstractAsyncSession) -> bool:
-    adapter_name = delivery_provider_adapter["name"]
-    if adapter_name == "sqlalchemy+asyncpg":
-        sqlalchemy_asyncpg_adapter = SQLAlchemyAsyncpgAdapter()
-        return await sqlalchemy_asyncpg_adapter.is_duplicate(event, session)
+async def is_duplicate(
+    event: Event,
+    session: AbstractAsyncSession,
+    adapters: dict[str, AbstractAdapter] = {
+        "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter()
+    },
+    adapter_name: str = delivery_provider_adapter["name"],
+) -> bool:
+    adapter = adapters[adapter_name]
+    return await adapter.is_duplicate(event, session)
 
 
 def ack(event: Event):
     event.acknowledgement_queue.put_nowait(True)
-    return True
 
 
 def nack(event: Event):
     event.acknowledgement_queue.put_nowait(False)
-    return False
