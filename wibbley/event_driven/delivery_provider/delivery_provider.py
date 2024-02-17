@@ -15,7 +15,9 @@ from wibbley.event_driven.messages import Event
 
 LOGGER = logging.getLogger("wibbley")
 
-ALLOWED_ADAPTERS = ["sqlalchemy+asyncpg"]
+ALLOWED_ADAPTERS = {
+    "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter(),
+}
 
 
 class AsyncConnection(ABC):
@@ -70,12 +72,10 @@ class AbstractAsyncSession(ABC):
 
 async def enable_exactly_once_processing(
     connection_factory: Union[AsyncConnectionFactory, ConnectionFactory],
-    adapters: dict[str, AbstractAdapter] = {
-        "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter()
-    },
+    adapters: dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
     adapter_name: str = delivery_provider_adapter["name"],
 ):
-    if adapter_name not in ALLOWED_ADAPTERS:
+    if adapter_name not in adapters:
         raise ValueError(f"Unknown adapter: {adapter_name}")
 
     adapter = adapters[adapter_name]
@@ -85,9 +85,7 @@ async def enable_exactly_once_processing(
 async def stage(
     event: Event,
     session: AbstractAsyncSession,
-    adapters: dict[str, AbstractAdapter] = {
-        "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter()
-    },
+    adapters: dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
     adapter_name: str = delivery_provider_adapter["name"],
 ):
     adapter = adapters[adapter_name]
@@ -97,9 +95,7 @@ async def stage(
 async def publish(
     event: Event,
     session: Union[AbstractAsyncSession, None] = None,
-    adapters: dict[str, AbstractAdapter] = {
-        "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter()
-    },
+    adapters: dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
     adapter_name: str = delivery_provider_adapter["name"],
 ):
     adapter = adapters[adapter_name]
@@ -109,9 +105,7 @@ async def publish(
 async def is_duplicate(
     event: Event,
     session: AbstractAsyncSession,
-    adapters: dict[str, AbstractAdapter] = {
-        "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter()
-    },
+    adapters: dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
     adapter_name: str = delivery_provider_adapter["name"],
 ) -> bool:
     adapter = adapters[adapter_name]

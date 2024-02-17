@@ -47,13 +47,14 @@ class FakeAdapter:
 async def test__enable_exactly_once_processing__calls_adapter():
     # Arrange
     fake_adapter = FakeAdapter()
+    allowed_adapters = {"fake": fake_adapter}
     fake_connection_factory = FakeConnectionFactory()
 
     # Act
     await enable_exactly_once_processing(
         fake_connection_factory,
-        {"sqlalchemy+asyncpg": fake_adapter},
-        "sqlalchemy+asyncpg",
+        allowed_adapters,
+        "fake",
     )
 
     # Assert
@@ -66,6 +67,7 @@ async def test__enable_exactly_once_processing__calls_adapter():
 async def test__stage__calls_adapter():
     # Arrange
     fake_adapter = FakeAdapter()
+    allowed_adapters = {"fake": fake_adapter}
     fake_event = "event"
     fake_session = "session"
 
@@ -73,8 +75,8 @@ async def test__stage__calls_adapter():
     await stage(
         fake_event,
         fake_session,
-        {"sqlalchemy+asyncpg": fake_adapter},
-        "sqlalchemy+asyncpg",
+        allowed_adapters,
+        "fake",
     )
 
     # Assert
@@ -85,6 +87,7 @@ async def test__stage__calls_adapter():
 async def test__publish__calls_adapter():
     # Arrange
     fake_adapter = FakeAdapter()
+    allowed_adapters = {"fake": fake_adapter}
     fake_event = "event"
     fake_session = "session"
 
@@ -92,8 +95,8 @@ async def test__publish__calls_adapter():
     await publish(
         fake_event,
         fake_session,
-        {"sqlalchemy+asyncpg": fake_adapter},
-        "sqlalchemy+asyncpg",
+        allowed_adapters,
+        "fake",
     )
 
     # Assert
@@ -104,6 +107,7 @@ async def test__publish__calls_adapter():
 async def test__is_duplicate__calls_adapter():
     # Arrange
     fake_adapter = FakeAdapter()
+    allowed_adapters = {"fake": fake_adapter}
     fake_event = "event"
     fake_session = "session"
 
@@ -111,8 +115,8 @@ async def test__is_duplicate__calls_adapter():
     await is_duplicate(
         fake_event,
         fake_session,
-        {"sqlalchemy+asyncpg": fake_adapter},
-        "sqlalchemy+asyncpg",
+        allowed_adapters,
+        "fake",
     )
 
     # Assert
