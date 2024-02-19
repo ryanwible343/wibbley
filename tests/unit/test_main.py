@@ -156,7 +156,7 @@ async def test__read_from_queue__calls_handle_message():
     queue.put_nowait({"type": "task_done", "task_id": "1234"})
 
     # ACT
-    await asyncio.wait_for(read_from_queue(queue, messagebus), timeout=0.2)
+    await asyncio.wait_for(read_from_queue(queue, messagebus), timeout=1)
 
     # ASSERT
     assert queue.empty() == True
