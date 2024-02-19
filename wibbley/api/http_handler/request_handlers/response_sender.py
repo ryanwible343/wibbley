@@ -25,9 +25,9 @@ class ResponseSender:
         response_body: Union[bytes, str, dict, list],
         status_code: int,
     ):
-        if type(response_body) is dict or type(response_body) is list:
+        if isinstance(response_body, dict) or isinstance(response_body, list):
             response_body = self.json_serializer.dumps(response_body)
-        elif type(response_body) is str:
+        elif isinstance(response_body, str):
             response_body = response_body.encode("utf-8")
 
         await send(

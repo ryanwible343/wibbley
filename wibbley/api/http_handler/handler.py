@@ -1,5 +1,4 @@
 import logging
-import re
 
 from wibbley.api.http_handler.event_handling import EventHandlingSettings
 from wibbley.api.http_handler.request import HTTPRequestConstructor

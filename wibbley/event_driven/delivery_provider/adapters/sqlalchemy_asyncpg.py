@@ -55,7 +55,7 @@ class SQLAlchemyAsyncpgAdapter(AbstractAdapter):
         session_connection = await session.connection()
         result = await session_connection.exec_driver_sql(select_stmt)
         record = result.fetchone()
-        if record == None:
+        if record is None:
             return
 
         event_id = record.id

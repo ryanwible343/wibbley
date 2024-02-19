@@ -127,7 +127,6 @@ def install_signal_handlers(
     loop: asyncio.AbstractEventLoop,
     signal_handler_installer=SignalHandlerInstaller(),
 ):
-    SIGNAL_HANDLERS = [SIGINT, SIGTERM]
     server.install_signal_handlers = lambda: None
     try:
         for sig in [SIGINT, SIGTERM]:
