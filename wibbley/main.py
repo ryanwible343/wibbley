@@ -10,6 +10,7 @@ from signal import SIGINT, SIGTERM
 import click
 import uvicorn
 import uvloop
+from click.testing import CliRunner
 
 import wibbley
 from wibbley.event_driven.queue import wibbley_queue
@@ -141,84 +142,20 @@ def install_signal_handlers(
 
 
 async def serve_app(
-    app,
     messagebus,
     task_count: int,
-    host: str,
-    port: int,
-    uds: str,
-    fd: int,
-    reload: bool,
-    reload_dirs: list[str],
-    reload_includes: list[str],
-    reload_excludes: list[str],
-    reload_delay: float,
-    env_file: str,
-    log_level: str,
-    proxy_headers: bool,
-    server_header: bool,
-    date_header: bool,
-    forwarded_allow_ips: str,
-    root_path: str,
-    limit_concurrency: int,
-    backlog: int,
-    limit_max_requests: int,
-    timeout_keep_alive: int,
-    timeout_graceful_shutdown: int | None,
-    ssl_keyfile: str,
-    ssl_certfile: str,
-    ssl_keyfile_password: str,
-    ssl_version: int,
-    ssl_cert_reqs: int,
-    ssl_ca_certs: str,
-    ssl_ciphers: str,
-    headers: list[str],
-    h11_max_incomplete_event_size: int | None,
-    server_cls: uvicorn.Server = uvicorn.Server,
+    server: uvicorn.Server,
+    background_task: read_from_queue = read_from_queue,
+    install_signal_handlers: install_signal_handlers = install_signal_handlers,
 ):
     loop = asyncio.get_event_loop()
-    config = uvicorn.Config(
-        app=app,
-        loop="uvloop",
-        host=host,
-        port=port,
-        uds=uds,
-        fd=fd,
-        reload=reload,
-        reload_dirs=reload_dirs or None,
-        reload_includes=reload_includes or None,
-        reload_excludes=reload_excludes or None,
-        reload_delay=reload_delay,
-        env_file=env_file,
-        log_level=log_level,
-        proxy_headers=proxy_headers,
-        server_header=server_header,
-        date_header=date_header,
-        forwarded_allow_ips=forwarded_allow_ips,
-        root_path=root_path,
-        limit_concurrency=limit_concurrency,
-        backlog=backlog,
-        limit_max_requests=limit_max_requests,
-        timeout_keep_alive=timeout_keep_alive,
-        timeout_graceful_shutdown=timeout_graceful_shutdown,
-        ssl_keyfile=ssl_keyfile,
-        ssl_certfile=ssl_certfile,
-        ssl_keyfile_password=ssl_keyfile_password,
-        ssl_version=ssl_version,
-        ssl_cert_reqs=ssl_cert_reqs,
-        ssl_ca_certs=ssl_ca_certs,
-        ssl_ciphers=ssl_ciphers,
-        headers=[header.split(":", 1) for header in headers],
-        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
-    )
-    server = server_cls(config)
     event_handler_tasks = []
     if messagebus:
         if messagebus.is_durable:
             asyncio.create_task(messagebus.enable_exactly_once_processing())
             asyncio.gather(*event_handler_tasks)
         event_handler_tasks = [
-            asyncio.create_task(read_from_queue(wibbley_queue, messagebus))
+            asyncio.create_task(background_task(wibbley_queue, messagebus))
             for _ in range(task_count)
         ]
         install_signal_handlers(server, event_handler_tasks, loop)
@@ -226,7 +163,9 @@ async def serve_app(
     await asyncio.gather(*tasks)
 
 
-def print_version(ctx: click.Context, param: click.Parameter, value: bool) -> None:
+def print_version(
+    ctx: click.Context, param: click.Parameter, value: bool, click=click
+) -> None:
     if not value or ctx.resilient_parsing:
         return
     click.echo(f"wibbley {wibbley.__version__}")
@@ -429,7 +368,7 @@ def print_version(ctx: click.Context, param: click.Parameter, value: bool) -> No
     callback=print_version,
     expose_value=False,
     is_eager=True,
-    help="Display the uvicorn version and exit.",
+    help="Display toutput == Nonehe uvicorn version and exit.",
 )
 @click.option(
     "--h11-max-incomplete-event-size",
@@ -478,49 +417,55 @@ def main(
 
     loaded_app = load_module(app)
     if not loaded_app:
-        return
+        sys.exit(1)
 
     loaded_messagebus = None
     if messagebus:
         loaded_messagebus = load_module(messagebus)
         if not loaded_messagebus:
-            return
+            sys.exit(1)
+
+    config = uvicorn.Config(
+        app=app,
+        loop="uvloop",
+        host=host,
+        port=port,
+        uds=uds,
+        fd=fd,
+        reload=reload,
+        reload_dirs=reload_dirs or None,
+        reload_includes=reload_includes or None,
+        reload_excludes=reload_excludes or None,
+        reload_delay=reload_delay,
+        env_file=env_file,
+        log_level=log_level,
+        proxy_headers=proxy_headers,
+        server_header=server_header,
+        date_header=date_header,
+        forwarded_allow_ips=forwarded_allow_ips,
+        root_path=root_path,
+        limit_concurrency=limit_concurrency,
+        backlog=backlog,
+        limit_max_requests=limit_max_requests,
+        timeout_keep_alive=timeout_keep_alive,
+        timeout_graceful_shutdown=timeout_graceful_shutdown,
+        ssl_keyfile=ssl_keyfile,
+        ssl_certfile=ssl_certfile,
+        ssl_keyfile_password=ssl_keyfile_password,
+        ssl_version=ssl_version,
+        ssl_cert_reqs=ssl_cert_reqs,
+        ssl_ca_certs=ssl_ca_certs,
+        ssl_ciphers=ssl_ciphers,
+        headers=[header.split(":", 1) for header in headers],
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+    )
+    server = uvicorn.Server(config)
 
     uvloop.install()
     uvloop.run(
         serve_app(
-            app=loaded_app,
             messagebus=loaded_messagebus,
             task_count=event_handler_task_count,
-            host=host,
-            port=port,
-            uds=uds,
-            fd=fd,
-            reload=reload,
-            reload_dirs=reload_dirs,
-            reload_includes=reload_includes,
-            reload_excludes=reload_excludes,
-            reload_delay=reload_delay,
-            env_file=env_file,
-            log_level=log_level,
-            proxy_headers=proxy_headers,
-            server_header=server_header,
-            date_header=date_header,
-            forwarded_allow_ips=forwarded_allow_ips,
-            root_path=root_path,
-            limit_concurrency=limit_concurrency,
-            backlog=backlog,
-            limit_max_requests=limit_max_requests,
-            timeout_keep_alive=timeout_keep_alive,
-            timeout_graceful_shutdown=timeout_graceful_shutdown,
-            ssl_keyfile=ssl_keyfile,
-            ssl_certfile=ssl_certfile,
-            ssl_keyfile_password=ssl_keyfile_password,
-            ssl_version=ssl_version,
-            ssl_cert_reqs=ssl_cert_reqs,
-            ssl_ca_certs=ssl_ca_certs,
-            ssl_ciphers=ssl_ciphers,
-            headers=headers,
-            h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+            server=server,
         )
     )

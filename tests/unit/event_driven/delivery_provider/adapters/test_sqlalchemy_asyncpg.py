@@ -259,3 +259,18 @@ async def test__sqlalchemy_asyncpg_adapter_nack__puts_false_on_acknowledgement_q
 
     # Assert
     assert fake_event.acknowledgement_queue.get_nowait() == False
+
+
+@pytest.mark.asyncio
+async def test__sqlalchemy_asyncpg_adapter_publish__when_query_returns_none__returns_none():
+    # Arrange
+    adapter = SQLAlchemyAsyncpgAdapter()
+    fake_session = FakeEmptySession()
+    fake_event = Event()
+    fake_event.acknowledgement_queue.put_nowait(True)
+
+    # Act
+    result = await adapter.publish(fake_event, fake_session)
+
+    # Assert
+    assert result == None

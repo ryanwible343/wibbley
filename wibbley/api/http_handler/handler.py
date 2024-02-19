@@ -82,23 +82,6 @@ class HTTPHandler:
                 response_body={"detail": "Method Not Allowed"},
             )
 
-        if method == "HEAD" and "GET" not in available_methods:
-            return await self.response_sender.send_response(
-                send,
-                status_code=405,
-                headers=[
-                    (b"content-type", b"application/json"),
-                    (
-                        b"allow",
-                        b",".join(
-                            available_method.encode("utf-8")
-                            for available_method in available_methods
-                        ),
-                    ),
-                ],
-                response_body={"detail": "Method Not Allowed"},
-            )
-
         http_request = await self.http_request_constructor.construct(
             path=path,
             method=method,

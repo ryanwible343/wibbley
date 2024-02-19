@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from click.testing import CliRunner
 
 from wibbley.api.app import App
 from wibbley.main import (
@@ -8,6 +9,8 @@ from wibbley.main import (
     handle_message,
     install_signal_handlers,
     load_module,
+    main,
+    print_version,
     read_from_queue,
     serve_app,
     shutdown_handler,
@@ -15,8 +18,15 @@ from wibbley.main import (
 
 
 class FakeMessagebus:
+    def __init__(self):
+        self.is_durable = False
+        self.enable_exactly_once_processing_called = False
+
     async def handle(self, message):
         pass
+
+    async def enable_exactly_once_processing(self):
+        self.enable_exactly_once_processing_called = True
 
 
 class FakeTask:
@@ -49,6 +59,49 @@ class FakeServer:
         self.serve_called = True
 
 
+class FakeBackgroundTask:
+    def __init__(self):
+        self.background_task_called = False
+
+    async def run(self, *args):
+        self.background_task_called = True
+
+
+class FakeSignalHandlerInstaller:
+    def __init__(self):
+        self.install_called = False
+
+    def install(self, *args, **kwargs):
+        self.install_called = True
+
+
+class FakeCTX:
+    def __init__(self):
+        self.resilient_parsing = False
+        self.exit_called = False
+
+    def exit(self, *args):
+        self.exit_called = True
+
+
+class FakeClick:
+    def __init__(self):
+        self.echo_called = False
+
+    def echo(self, *args):
+        self.echo_called = True
+
+
+class FakeLoadModuleFailure:
+    def load(self, *args):
+        return False
+
+
+class FakeLoadModuleSuccess:
+    def load(self, *args):
+        return True
+
+
 def test__load_module__when_module_exists__returns_variable_in_module():
     # ACT
     var = load_module("wibbley.api.app:App")
@@ -59,7 +112,7 @@ def test__load_module__when_module_exists__returns_variable_in_module():
 
 def test__load_module__when_module_does_not_exist__returns_none():
     # ACT
-    module = load_module("w_module")
+    module = load_module("wibbley.does_not_exist:App")
 
     # ASSERT
     assert module == None
@@ -170,42 +223,137 @@ def test__install_signal_handlers__when_installer_raises_exception__adds_signal_
     assert loop._signal_handlers[1] != None
 
 
-def test__serve_app__no_messagebus__runs_serve_app_task():
+@pytest.mark.asyncio
+async def test__serve_app__no_messagebus__runs_serve_app_task():
+    # ARRANGE
+    config = {}
+    server = FakeServer(config)
+
     # ACT
-    serve_app(
-        app="test",
+    await serve_app(
         messagebus=None,
         task_count=1,
-        host="test",
-        port="test",
-        uds="test",
-        fd="test",
-        reload=False,
-        reload_dirs="test",
-        reload_includes="test",
-        reload_excludes="test",
-        reload_delay=1,
-        env_file="test",
-        log_level="test",
-        proxy_headers=False,
-        server_header=False,
-        date_header=False,
-        forwarded_allow_ips="test",
-        root_path="test",
-        limit_concurrency=1,
-        backlog=1,
-        limit_max_requests=1,
-        timeout_keep_alive=1,
-        timeout_graceful_shutdown=1,
-        ssl_keyfile="test",
-        ssl_certfile="test",
-        ssl_keyfile_password="test",
-        ssl_version="test",
-        ssl_cert_reqs="test",
-        ssl_ca_certs="test",
-        ssl_ciphers="test",
-        headers=[],
+        server=server,
     )
 
     # ASSERT
     assert server.serve_called == True
+
+
+def test__serve_app__when_messagebus__runs_background_task_and_installs_event_handlers():
+    # ARRANGE
+    background_task = FakeBackgroundTask()
+    signal_handler_installer = FakeSignalHandlerInstaller()
+    config = {}
+    server = FakeServer(config)
+
+    # ACT
+    asyncio.run(
+        serve_app(
+            FakeMessagebus(),
+            1,
+            server,
+            background_task.run,
+            signal_handler_installer.install,
+        )
+    )
+
+    # ASSERT
+    assert background_task.background_task_called == True
+    assert signal_handler_installer.install_called == True
+
+
+def test__serve_app__when_messagebus_is_durable__enables_exactly_once_processing():
+    # ARRANGE
+    background_task = FakeBackgroundTask()
+    signal_handler_installer = FakeSignalHandlerInstaller()
+    server = FakeServer({})
+    messagebus = FakeMessagebus()
+    messagebus.is_durable = True
+
+    # ACT
+    asyncio.run(
+        serve_app(
+            messagebus,
+            1,
+            server,
+            background_task.run,
+            signal_handler_installer.install,
+        )
+    )
+
+    # ASSERT
+    assert messagebus.enable_exactly_once_processing_called == True
+
+
+def test__print_version__when_value_and_no_resilient_parsing__calls_click_echo():
+    # ARRANGE
+    click = FakeClick()
+    ctx = FakeCTX()
+    ctx.resilient_parsing = False
+
+    # ACT
+    print_version(ctx, None, True, click)
+
+    # ASSERT
+    assert click.echo_called == True
+
+
+def test__print_version__when_resilient_parsing_enabled__returns():
+    # ARRANGE
+    click = FakeClick()
+    ctx = FakeCTX()
+    ctx.resilient_parsing = True
+
+    # ACT
+    print_version(ctx, None, True, click)
+
+    # ASSERT
+    assert click.echo_called == False
+
+
+def test__main__when_cannot_load_app__calls_sys_exit_1(mocker):
+    # ARRANGE
+    load_module = FakeLoadModuleFailure()
+    runner = CliRunner()
+    mocker.patch("wibbley.main.load_module", load_module.load)
+
+    # ACT
+    result = runner.invoke(main, ["--app", "wibbley.api.app:App"])
+
+    # ASSERT
+    assert result.exit_code == 1
+
+
+def test__main__when_cannot_load_messagebus__calls_sys_exit_1():
+    # ARRANGE
+    runner = CliRunner()
+
+    # ACT
+    result = runner.invoke(
+        main,
+        [
+            "--app",
+            "wibbley.api.app:App",
+            "--messagebus",
+            "wibbley.does_not_exist",
+        ],
+    )
+
+    # ASSERT
+    assert result.exit_code == 1
+
+
+def test__main__when_successfully_loads_app__calls_serve_app(mocker):
+    # ARRANGE
+    load_module = FakeLoadModuleSuccess()
+    serve_app = mocker.patch("wibbley.main.serve_app")
+    runner = CliRunner()
+    mocker.patch("wibbley.main.load_module", load_module.load)
+
+    # ACT
+    result = runner.invoke(main, ["--app", "wibbley.api.app:App"])
+
+    # ASSERT
+    assert serve_app.called == True
+    assert result.exit_code == 0

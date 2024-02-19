@@ -443,3 +443,49 @@ def test__messagebus_listen__when_class_decorated_event_handler_already_register
 
     # Assert
     assert len(messagebus.event_handlers[Event]) == 2
+
+
+def test__messagebus_listen__when_decorated_class_is_not_event_command_or_query__raises_value_error():
+    # Arrange
+    messagebus = Messagebus()
+
+    class FakeClass:
+        pass
+
+    # Act/Assert
+    with pytest.raises(ValueError) as e:
+
+        @messagebus.listen(FakeClass)
+        class FakeListener:
+            def handle(self):
+                pass
+
+
+def test__messagebus_add_durability__sets_durability():
+    # Arrange
+    messagebus = Messagebus()
+
+    # Act
+    messagebus.add_durability(adapter="test", connection_factory="test")
+
+    # Assert
+    assert messagebus.is_durable == True
+    assert messagebus.connection_factory == "test"
+
+
+@pytest.mark.asyncio
+async def test__messagebus_enable_exactly_once_processing__calls_delivery_provider_enable_exactly_once_processing(
+    mocker,
+):
+    # Arrange
+    messagebus = Messagebus()
+    messagebus.connection_factory = "test"
+    delivery_provider_enable_exactly_once_processing = mocker.patch(
+        "wibbley.event_driven.messagebus.enable_exactly_once_processing",
+    )
+
+    # Act
+    await messagebus.enable_exactly_once_processing()
+
+    # Assert
+    assert delivery_provider_enable_exactly_once_processing.called == True

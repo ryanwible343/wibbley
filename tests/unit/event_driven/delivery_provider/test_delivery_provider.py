@@ -145,3 +145,19 @@ async def test__nack__adds_false_to_event_acknowledgement_queue():
 
     # Assert
     assert fake_event.acknowledgement_queue.get_nowait() is False
+
+
+@pytest.mark.asyncio
+async def test__enable_exactly_once_processing__when_adapter_is_unknown__raises_value_error():
+    # Arrange
+    fake_adapter = FakeAdapter()
+    allowed_adapters = {"fake": fake_adapter}
+    fake_connection_factory = FakeConnectionFactory()
+
+    # Act
+    with pytest.raises(ValueError):
+        await enable_exactly_once_processing(
+            fake_connection_factory,
+            allowed_adapters,
+            "unknown",
+        )

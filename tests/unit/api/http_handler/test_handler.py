@@ -340,3 +340,31 @@ async def test__http_handler_handle__when_route_func_raises_exception__sends_500
     assert http_handler.response_sender.calls[0]["response_body"] == {
         "detail": "Internal Server Error"
     }
+
+
+@pytest.mark.asyncio
+async def test__http_handler_handle__when_method_is_head_and_no_get_route_func_is_registered__sends_405_response():
+    # ARRANGE
+    http_handler = HTTPHandler(
+        router=FakeRouter(routes={"/path": {"POST": "some_func"}}),
+        response_sender=FakeResponseSender(),
+        options_request_handler=FakeOptionsRequestHandler(),
+        http_request_constructor=FakeHTTPRequestConstructor(),
+        head_request_handler=FakeHeadRequestHandler(FakeResponseSender()),
+        default_request_handler=FakeDefaultRequestHandler(FakeResponseSender()),
+        event_handling_settings=FakeEventHandlingSettings(),
+        route_extractor=RouteExtractor(),
+    )
+    scope = {
+        "path": "/path",
+        "method": "HEAD",
+        "headers": {},
+        "query_string": b"",
+    }
+
+    # ACT
+    await http_handler.handle(scope, None, fake_send)
+
+    # ASSERT
+    assert len(http_handler.response_sender.calls) == 1
+    assert http_handler.response_sender.calls[0]["status_code"] == 405
