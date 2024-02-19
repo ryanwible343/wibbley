@@ -1,3 +1,5 @@
+from typing import Union
+
 from wibbley.api.http_handler.request_handlers.response_sender import ResponseSender
 from wibbley.api.http_handler.response import HTTPResponse
 
@@ -20,7 +22,7 @@ class DefaultRequestHandler:
         return response_header
 
     async def handle(
-        self, send, route_func_result: str | bytes | dict | list | HTTPResponse
+        self, send, route_func_result: Union[str, bytes, dict, list, HTTPResponse]
     ):
         if isinstance(route_func_result, HTTPResponse):
             return await self.response_sender.send_response(

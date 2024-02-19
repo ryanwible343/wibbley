@@ -1,3 +1,5 @@
+from typing import Union
+
 from wibbley.api.http_handler.request_handlers.response_sender import ResponseSender
 
 
@@ -15,7 +17,7 @@ class HeadRequestHandler:
         response_header = response_types.get(type(result))
         return response_header
 
-    async def handle(self, send, route_func_result: str | bytes | dict | list):
+    async def handle(self, send, route_func_result: Union[str, bytes, dict, list]):
         content_type_header = self._determine_content_type_header(route_func_result)
 
         await self.response_sender.send_response(

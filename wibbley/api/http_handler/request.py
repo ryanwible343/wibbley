@@ -1,4 +1,4 @@
-from typing import Coroutine
+from typing import Coroutine, Dict, List, Tuple
 
 import orjson
 
@@ -8,9 +8,9 @@ class HTTPRequest:
         self,
         path: str,
         method: str,
-        query_params: dict[str, str],
-        path_params: dict[str, str],
-        headers: dict[str, str],
+        query_params: Dict[str, str],
+        path_params: Dict[str, str],
+        headers: Dict[str, str],
         body: bytes,
     ):
         self.method = method
@@ -41,10 +41,10 @@ class HTTPRequestConstructor:
     async def construct(
         self,
         path: str,
-        path_params: dict[str, str],
+        path_params: Dict[str, str],
         method: str,
         query_string: bytes,
-        headers: list[tuple[bytes, bytes]],
+        headers: List[Tuple[bytes, bytes]],
         receive: Coroutine,
     ) -> HTTPRequest:
         query_params = self._format_query_params(query_string)

@@ -1,8 +1,11 @@
+from typing import List, Tuple
+
+
 class HTTPResponse:
     def __init__(
         self,
         status_code: int,
-        headers: list[tuple[bytes, bytes]],
+        headers: List[Tuple[bytes, bytes]],
         body: bytes,
     ):
         self.status_code = status_code

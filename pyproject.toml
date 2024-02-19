@@ -5,7 +5,7 @@ description="An asynchronous web framework for event-driven applications"
 authors = ["Ryan Wible <ryanwiblecoding@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.8"
 orjson = "^3.9.10"
 click = "^8.1.7"
 uvicorn = "^0.27.1"
@@ -17,6 +17,7 @@ pytest = "^8.0.0"
 pytest-asyncio = "^0.23.4"
 sqlalchemy = "^2.0.26"
 pytest-cov = "^4.1.0"
+exceptiongroup = "^1.2.0"
 
 [tool.poetry.scripts]
 wibbley = "wibbley.main:main"

@@ -1,3 +1,5 @@
+from typing import List
+
 from wibbley.api.http_handler.cors import CORSSettings
 from wibbley.api.http_handler.request_handlers.response_sender import ResponseSender
 
@@ -7,7 +9,7 @@ class OptionsRequestHandler:
         self.cors_settings = cors_settings
         self.response_sender = response_sender
 
-    async def handle(self, send, available_methods: list[str]):
+    async def handle(self, send, available_methods: List[str]):
         if self.cors_settings is None:
             await self.response_sender.send_response(
                 send,

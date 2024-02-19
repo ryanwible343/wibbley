@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Dict, Union
 
 from wibbley.event_driven.delivery_provider.adapters.abstract_adapter import (
     AbstractAdapter,
@@ -72,7 +72,7 @@ class AbstractAsyncSession(ABC):
 
 async def enable_exactly_once_processing(
     connection_factory: Union[AsyncConnectionFactory, ConnectionFactory],
-    adapters: dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
+    adapters: Dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
     adapter_name: str = delivery_provider_adapter["name"],
 ):
     if adapter_name not in adapters:
@@ -85,7 +85,7 @@ async def enable_exactly_once_processing(
 async def stage(
     event: Event,
     session: AbstractAsyncSession,
-    adapters: dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
+    adapters: Dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
     adapter_name: str = delivery_provider_adapter["name"],
 ):
     adapter = adapters[adapter_name]
@@ -95,7 +95,7 @@ async def stage(
 async def publish(
     event: Event,
     session: Union[AbstractAsyncSession, None] = None,
-    adapters: dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
+    adapters: Dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
     adapter_name: str = delivery_provider_adapter["name"],
 ):
     adapter = adapters[adapter_name]
@@ -105,7 +105,7 @@ async def publish(
 async def is_duplicate(
     event: Event,
     session: AbstractAsyncSession,
-    adapters: dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
+    adapters: Dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
     adapter_name: str = delivery_provider_adapter["name"],
 ) -> bool:
     adapter = adapters[adapter_name]

@@ -1,9 +1,12 @@
+from typing import List
+
+
 class CORSSettings:
     def __init__(
         self,
-        allow_origins: list[str],
-        allow_methods: list[str],
-        allow_headers: list[str],
+        allow_origins: List[str],
+        allow_methods: List[str],
+        allow_headers: List[str],
     ):
         self.allow_origins = allow_origins
         self.allow_methods = allow_methods

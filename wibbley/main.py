@@ -6,11 +6,11 @@ import signal
 import ssl
 import sys
 from signal import SIGINT, SIGTERM
+from typing import Dict, List, Union
 
 import click
 import uvicorn
 import uvloop
-from click.testing import CliRunner
 
 import wibbley
 from wibbley.event_driven.queue import wibbley_queue
@@ -18,7 +18,7 @@ from wibbley.event_driven.queue import wibbley_queue
 SIGNAL_HANDLERS = [SIGINT, SIGTERM]
 DEFAULT_EVENT_HANDLER_TASK_COUNT = 100
 TRACE_LOG_LEVEL = 5
-LOG_LEVELS: dict[str, int] = {
+LOG_LEVELS: Dict[str, int] = {
     "critical": logging.CRITICAL,
     "error": logging.ERROR,
     "warning": logging.WARNING,
@@ -386,9 +386,9 @@ def main(
     uds: str,
     fd: int,
     reload: bool,
-    reload_dirs: list[str],
-    reload_includes: list[str],
-    reload_excludes: list[str],
+    reload_dirs: List[str],
+    reload_includes: List[str],
+    reload_excludes: List[str],
     reload_delay: float,
     env_file: str,
     log_level: str,
@@ -401,7 +401,7 @@ def main(
     backlog: int,
     limit_max_requests: int,
     timeout_keep_alive: int,
-    timeout_graceful_shutdown: int | None,
+    timeout_graceful_shutdown: Union[int, None],
     ssl_keyfile: str,
     ssl_certfile: str,
     ssl_keyfile_password: str,
@@ -409,8 +409,8 @@ def main(
     ssl_cert_reqs: int,
     ssl_ca_certs: str,
     ssl_ciphers: str,
-    headers: list[str],
-    h11_max_incomplete_event_size: int | None,
+    headers: List[str],
+    h11_max_incomplete_event_size: Union[int, None],
 ):
     current_dir = os.getcwd()
     sys.path.insert(0, current_dir)

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Coroutine
+from typing import Coroutine, List, Tuple, Union
 
 
 class JSONSerializer(ABC):
@@ -13,7 +13,7 @@ class ResponseSender:
         self.json_serializer = json_serializer
 
     async def send_response_start(
-        self, send: Coroutine, headers: list[tuple[bytes, bytes]], status_code: int
+        self, send: Coroutine, headers: List[Tuple[bytes, bytes]], status_code: int
     ):
         await send(
             {"type": "http.response.start", "status": status_code, "headers": headers}
@@ -22,7 +22,7 @@ class ResponseSender:
     async def send_response_body(
         self,
         send: Coroutine,
-        response_body: bytes | str | dict | list,
+        response_body: Union[bytes, str, dict, list],
         status_code: int,
     ):
         if type(response_body) is dict or type(response_body) is list:
