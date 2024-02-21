@@ -4,7 +4,7 @@ from logging import getLogger
 
 import orjson
 
-from wibbley.event_driven.delivery_provider.adapters.abstract_adapter import (
+from wibbley.event_driven.message_broker.adapters.abstract_adapter import (
     AbstractAdapter,
 )
 from wibbley.event_driven.queue import wibbley_queue

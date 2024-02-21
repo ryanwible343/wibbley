@@ -2,7 +2,7 @@ import logging
 from functools import wraps
 from typing import Literal, Union
 
-from wibbley.event_driven.delivery_provider.delivery_provider import (
+from wibbley.event_driven.message_broker.message_broker import (
     AsyncConnectionFactory,
     ConnectionFactory,
 )

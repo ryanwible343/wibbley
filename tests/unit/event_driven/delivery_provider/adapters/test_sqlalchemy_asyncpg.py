@@ -4,7 +4,7 @@ from copy import copy
 import orjson
 import pytest
 
-from wibbley.event_driven.delivery_provider.adapters.sqlalchemy_asyncpg import (
+from wibbley.event_driven.message_broker.adapters.sqlalchemy_asyncpg import (
     SQLAlchemyAsyncpgAdapter,
 )
 from wibbley.event_driven.messages import Event

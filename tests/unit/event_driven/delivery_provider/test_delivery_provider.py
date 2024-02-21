@@ -1,6 +1,6 @@
 import pytest
 
-from wibbley.event_driven.delivery_provider.delivery_provider import MessageBroker
+from wibbley.event_driven.message_broker.message_broker import MessageBroker
 from wibbley.event_driven.messages import Event
 
 
