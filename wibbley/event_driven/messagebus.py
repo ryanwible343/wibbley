@@ -5,7 +5,6 @@ from typing import Literal, Union
 from wibbley.event_driven.delivery_provider.delivery_provider import (
     AsyncConnectionFactory,
     ConnectionFactory,
-    enable_exactly_once_processing,
 )
 from wibbley.event_driven.delivery_provider.delivery_provider_adapter_global import (
     delivery_provider_adapter,
@@ -94,8 +93,10 @@ class Messagebus:
 
         await inner_handler(message)
 
-    async def enable_exactly_once_processing(self):
-        await enable_exactly_once_processing(self.connection_factory)
+    # async def enable_exactly_once_processing(self):
+    #     await enable_exactly_once_processing(
+    #         self.connection_factory, delivery_provider_adapter["name"]
+    #     )
 
     def add_durability(
         self,

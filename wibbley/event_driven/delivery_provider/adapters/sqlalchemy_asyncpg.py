@@ -14,23 +14,24 @@ LOGGER = getLogger("wibbley")
 
 
 class SQLAlchemyAsyncpgAdapter(AbstractAdapter):
-    def __init__(self):
+    def __init__(self, connection_factory):
         self.async_retry = AsyncRetry()
         self.ack_timeout = 2
+        self.connection_factory = connection_factory
 
-    async def execute_async(self, connection_factory, stmt):
-        connection = await connection_factory.connect()
+    async def execute_async(self, stmt):
+        connection = await self.connection_factory.connect()
         await connection.exec_driver_sql(stmt)
         await connection.commit()
         await connection.close()
 
-    async def enable_exactly_once_processing(self, connection_factory):
+    async def enable_exactly_once_processing(self):
         schema_stmt = "CREATE SCHEMA IF NOT EXISTS wibbley;"
         outbox_stmt = "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN)"
         inbox_stmt = "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB)"
-        await self.execute_async(connection_factory, schema_stmt)
-        await self.execute_async(connection_factory, inbox_stmt)
-        await self.execute_async(connection_factory, outbox_stmt)
+        await self.execute_async(schema_stmt)
+        await self.execute_async(inbox_stmt)
+        await self.execute_async(outbox_stmt)
         return
 
     async def stage(self, event, session):
@@ -41,7 +42,7 @@ class SQLAlchemyAsyncpgAdapter(AbstractAdapter):
         session_connection = await session.connection()
         await session_connection.exec_driver_sql(stmt)
 
-    async def publish(self, event, session, queue=wibbley_queue):
+    async def _publish_task(self, event, queue):
         @self.async_retry
         async def wait_for_ack(event):
             try:
@@ -52,8 +53,8 @@ class SQLAlchemyAsyncpgAdapter(AbstractAdapter):
                 return False
 
         select_stmt = f"SELECT * FROM wibbley.outbox WHERE id = '{event.id}';"
-        session_connection = await session.connection()
-        result = await session_connection.exec_driver_sql(select_stmt)
+        connection = await self.connection_factory.connect()
+        result = await connection.exec_driver_sql(select_stmt)
         record = result.fetchone()
         if record is None:
             return
@@ -62,12 +63,16 @@ class SQLAlchemyAsyncpgAdapter(AbstractAdapter):
         update_stmt = (
             f"UPDATE wibbley.outbox SET delivered = TRUE WHERE id = '{event_id}';"
         )
-        await session_connection.exec_driver_sql(update_stmt)
+        await connection.exec_driver_sql(update_stmt)
         await queue.put(event)
         ack = await wait_for_ack(event)
         if ack:
             LOGGER.info(f"Event {event.id} acknowledged")
-            await session.commit()
+            await connection.commit()
+        await connection.close()
+
+    async def publish(self, event, queue=wibbley_queue):
+        asyncio.create_task(self._publish_task(event, queue))
 
     async def is_duplicate(self, event, session) -> bool:
         select_stmt = f"SELECT * FROM wibbley.inbox WHERE id = '{event.id}';"

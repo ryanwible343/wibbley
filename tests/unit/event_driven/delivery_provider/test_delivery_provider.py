@@ -1,13 +1,6 @@
 import pytest
 
-from wibbley.event_driven.delivery_provider.delivery_provider import (
-    ack,
-    enable_exactly_once_processing,
-    is_duplicate,
-    nack,
-    publish,
-    stage,
-)
+from wibbley.event_driven.delivery_provider.delivery_provider import MessageBroker
 from wibbley.event_driven.messages import Event
 
 
@@ -30,8 +23,8 @@ class FakeAdapter:
     async def nack(self, event):
         self.nack_calls.append(event)
 
-    async def publish(self, event, session):
-        self.publish_calls.append((event, session))
+    async def publish(self, event):
+        self.publish_calls.append(event)
 
     async def stage(self, event, session):
         self.stage_calls.append((event, session))
@@ -49,13 +42,13 @@ async def test__enable_exactly_once_processing__calls_adapter():
     fake_adapter = FakeAdapter()
     allowed_adapters = {"fake": fake_adapter}
     fake_connection_factory = FakeConnectionFactory()
+    message_broker = MessageBroker(
+        adapter_name="fake", connection_factory=fake_connection_factory
+    )
+    message_broker.adapters = {"fake": fake_adapter}
 
     # Act
-    await enable_exactly_once_processing(
-        fake_connection_factory,
-        allowed_adapters,
-        "fake",
-    )
+    await message_broker.enable_exactly_once_processing()
 
     # Assert
     assert fake_adapter.enable_exactly_once_processing_calls == [
@@ -67,16 +60,18 @@ async def test__enable_exactly_once_processing__calls_adapter():
 async def test__stage__calls_adapter():
     # Arrange
     fake_adapter = FakeAdapter()
-    allowed_adapters = {"fake": fake_adapter}
     fake_event = "event"
     fake_session = "session"
+    fake_connection_factory = FakeConnectionFactory()
+    message_broker = MessageBroker(
+        adapter_name="fake", connection_factory=fake_connection_factory
+    )
+    message_broker.adapters = {"fake": fake_adapter}
 
     # Act
-    await stage(
+    await message_broker.stage(
         fake_event,
         fake_session,
-        allowed_adapters,
-        "fake",
     )
 
     # Assert
@@ -87,36 +82,37 @@ async def test__stage__calls_adapter():
 async def test__publish__calls_adapter():
     # Arrange
     fake_adapter = FakeAdapter()
-    allowed_adapters = {"fake": fake_adapter}
     fake_event = "event"
     fake_session = "session"
+    fake_connection_factory = FakeConnectionFactory()
+    message_broker = MessageBroker(
+        adapter_name="fake", connection_factory=fake_connection_factory
+    )
+    message_broker.adapters = {"fake": fake_adapter}
 
     # Act
-    await publish(
-        fake_event,
-        fake_session,
-        allowed_adapters,
-        "fake",
-    )
+    await message_broker.publish(fake_event)
 
     # Assert
-    assert fake_adapter.publish_calls == [(fake_event, fake_session)]
+    assert fake_adapter.publish_calls == [fake_event]
 
 
 @pytest.mark.asyncio
 async def test__is_duplicate__calls_adapter():
     # Arrange
     fake_adapter = FakeAdapter()
-    allowed_adapters = {"fake": fake_adapter}
     fake_event = "event"
     fake_session = "session"
+    fake_connection_factory = FakeConnectionFactory()
+    message_broker = MessageBroker(
+        adapter_name="fake", connection_factory=fake_connection_factory
+    )
+    message_broker.adapters = {"fake": fake_adapter}
 
     # Act
-    await is_duplicate(
+    await message_broker.is_duplicate(
         fake_event,
         fake_session,
-        allowed_adapters,
-        "fake",
     )
 
     # Assert
@@ -127,9 +123,13 @@ async def test__is_duplicate__calls_adapter():
 async def test__ack__adds_true_to_event_acknowledgement_queue():
     # Arrange
     fake_event = Event()
+    fake_connection_factory = FakeConnectionFactory()
+    message_broker = MessageBroker(
+        adapter_name="fake", connection_factory=fake_connection_factory
+    )
 
     # Act
-    result = ack(fake_event)
+    result = message_broker.ack(fake_event)
 
     # Assert
     assert fake_event.acknowledgement_queue.get_nowait() is True
@@ -139,25 +139,13 @@ async def test__ack__adds_true_to_event_acknowledgement_queue():
 async def test__nack__adds_false_to_event_acknowledgement_queue():
     # Arrange
     fake_event = Event()
+    fake_connection_factory = FakeConnectionFactory()
+    message_broker = MessageBroker(
+        adapter_name="fake", connection_factory=fake_connection_factory
+    )
 
     # Act
-    result = nack(fake_event)
+    result = message_broker.nack(fake_event)
 
     # Assert
     assert fake_event.acknowledgement_queue.get_nowait() is False
-
-
-@pytest.mark.asyncio
-async def test__enable_exactly_once_processing__when_adapter_is_unknown__raises_value_error():
-    # Arrange
-    fake_adapter = FakeAdapter()
-    allowed_adapters = {"fake": fake_adapter}
-    fake_connection_factory = FakeConnectionFactory()
-
-    # Act
-    with pytest.raises(ValueError):
-        await enable_exactly_once_processing(
-            fake_connection_factory,
-            allowed_adapters,
-            "unknown",
-        )

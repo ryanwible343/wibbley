@@ -1,4 +1,5 @@
 import logging
+import sys
 from abc import ABC, abstractmethod
 from typing import Dict, Union
 
@@ -14,10 +15,6 @@ from wibbley.event_driven.delivery_provider.delivery_provider_adapter_global imp
 from wibbley.event_driven.messages import Event
 
 LOGGER = logging.getLogger("wibbley")
-
-ALLOWED_ADAPTERS = {
-    "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter(),
-}
 
 
 class AsyncConnection(ABC):
@@ -70,51 +67,44 @@ class AbstractAsyncSession(ABC):
         """Commit the current transaction."""
 
 
-async def enable_exactly_once_processing(
-    connection_factory: Union[AsyncConnectionFactory, ConnectionFactory],
-    adapters: Dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
-    adapter_name: str = delivery_provider_adapter["name"],
-):
-    if adapter_name not in adapters:
-        raise ValueError(f"Unknown adapter: {adapter_name}")
+class MessageBroker:
+    def __init__(
+        self,
+        adapter_name: str,
+        connection_factory: AsyncConnectionFactory,
+    ):
+        self.adapters = {
+            "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter(connection_factory),
+        }
+        self.connection_factory = connection_factory
+        self.adapter_name = adapter_name
 
-    adapter = adapters[adapter_name]
-    return await adapter.enable_exactly_once_processing(connection_factory)
+    async def enable_exactly_once_processing(self):
+        adapter = self.adapters[self.adapter_name]
+        return await adapter.enable_exactly_once_processing(self.connection_factory)
 
+    async def stage(
+        self,
+        event: Event,
+        session: AbstractAsyncSession,
+    ):
+        adapter = self.adapters[self.adapter_name]
+        return await adapter.stage(event, session)
 
-async def stage(
-    event: Event,
-    session: AbstractAsyncSession,
-    adapters: Dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
-    adapter_name: str = delivery_provider_adapter["name"],
-):
-    adapter = adapters[adapter_name]
-    return await adapter.stage(event, session)
+    async def publish(self, event: Event):
+        adapter = self.adapters[self.adapter_name]
+        return await adapter.publish(event)
 
+    async def is_duplicate(
+        self,
+        event: Event,
+        session: AbstractAsyncSession,
+    ) -> bool:
+        adapter = self.adapters[self.adapter_name]
+        return await adapter.is_duplicate(event, session)
 
-async def publish(
-    event: Event,
-    session: Union[AbstractAsyncSession, None] = None,
-    adapters: Dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
-    adapter_name: str = delivery_provider_adapter["name"],
-):
-    adapter = adapters[adapter_name]
-    return await adapter.publish(event, session)
+    def ack(self, event: Event):
+        event.acknowledgement_queue.put_nowait(True)
 
-
-async def is_duplicate(
-    event: Event,
-    session: AbstractAsyncSession,
-    adapters: Dict[str, AbstractAdapter] = ALLOWED_ADAPTERS,
-    adapter_name: str = delivery_provider_adapter["name"],
-) -> bool:
-    adapter = adapters[adapter_name]
-    return await adapter.is_duplicate(event, session)
-
-
-def ack(event: Event):
-    event.acknowledgement_queue.put_nowait(True)
-
-
-def nack(event: Event):
-    event.acknowledgement_queue.put_nowait(False)
+    def nack(self, event: Event):
+        event.acknowledgement_queue.put_nowait(False)

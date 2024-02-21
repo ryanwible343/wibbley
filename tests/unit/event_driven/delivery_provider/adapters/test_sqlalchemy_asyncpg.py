@@ -1,3 +1,4 @@
+import asyncio
 from copy import copy
 
 import orjson
@@ -79,6 +80,15 @@ class FakeConnectionFactory:
         return self.connections[-1]
 
 
+class FakeEmptyConnectionFactory:
+    def __init__(self):
+        self.connections = []
+
+    async def connect(self):
+        self.connections.append(FakeEmptyConnection())
+        return self.connections[-1]
+
+
 class FakeSession:
     def __init__(self):
         self.connection_var = None
@@ -92,15 +102,23 @@ class FakeSession:
         self.commit_calls.append(None)
 
 
+class FakePublishTask:
+    def __init__(self):
+        self.called = False
+
+    async def publish(self, event, queue):
+        self.called = True
+
+
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncpg_adapter__execute_async__calls_exec_driver_sql_and_commit_and_close_on_connection():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
     connection_factory = FakeConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(connection_factory)
     stmt = "SELECT * FROM wibbley.outbox;"
 
     # Act
-    await adapter.execute_async(connection_factory, stmt)
+    await adapter.execute_async(stmt)
 
     # Assert
     assert connection_factory.connections[0].exec_driver_sql_calls == [stmt]
@@ -111,11 +129,11 @@ async def test__sqlalchemy_asyncpg_adapter__execute_async__calls_exec_driver_sql
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncpg_adapter_enable_exactly_once_processing__calls_execute_async_with_expected_stmts():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
     connection_factory = FakeConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(connection_factory)
 
     # Act
-    await adapter.enable_exactly_once_processing(connection_factory)
+    await adapter.enable_exactly_once_processing()
 
     # Assert
     assert (
@@ -135,7 +153,8 @@ async def test__sqlalchemy_asyncpg_adapter_enable_exactly_once_processing__calls
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncpg_adapter_stage__calls_exec_driver_sql_on_session_connection():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
+    connection_factory = FakeConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(connection_factory)
     fake_session = FakeSession()
     fake_event = Event()
 
@@ -155,37 +174,38 @@ async def test__sqlalchemy_asyncpg_adapter_stage__calls_exec_driver_sql_on_sessi
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncpg_adapter_publish__calls_exec_driver_sql_and_commit_on_session_connection():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
-    fake_session = FakeSession()
+    fake_connection_factory = FakeConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
     fake_event = Event()
     fake_event.acknowledgement_queue.put_nowait(True)
 
     # Act
-    await adapter.publish(fake_event, fake_session)
+    await adapter._publish_task(fake_event, queue=asyncio.Queue())
 
     # Assert
     assert (
-        fake_session.connection_var.exec_driver_sql_calls[0]
+        fake_connection_factory.connections[0].exec_driver_sql_calls[0]
         == f"SELECT * FROM wibbley.outbox WHERE id = '{fake_event.id}';"
     )
     assert (
-        fake_session.connection_var.exec_driver_sql_calls[1]
+        fake_connection_factory.connections[0].exec_driver_sql_calls[1]
         == f"UPDATE wibbley.outbox SET delivered = TRUE WHERE id = '123';"
     )
-    assert fake_session.commit_calls == [None]
+    assert fake_connection_factory.connections[0].commit_calls == [None]
 
 
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncpg_adapter_publish__when_acknowledgement_queue_times_out__does_not_commit():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
+    fake_connection_factory = FakeConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
     adapter.async_retry = AsyncRetry(max_attempts=1, base_delay=0)
     adapter.ack_timeout = 0
     fake_session = FakeSession()
     fake_event = Event()
 
     # Act
-    await adapter.publish(fake_event, fake_session)
+    await adapter._publish_task(fake_event, queue=asyncio.Queue())
 
     # Assert
     assert fake_session.commit_calls == []
@@ -194,7 +214,8 @@ async def test__sqlalchemy_asyncpg_adapter_publish__when_acknowledgement_queue_t
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncpg_adapter_is_duplicate__when_record_exists__calls_ack_and_returns_true():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
+    fake_connection_factory = FakeConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
     fake_session = FakeSession()
     fake_event = Event()
 
@@ -213,7 +234,8 @@ async def test__sqlalchemy_asyncpg_adapter_is_duplicate__when_record_exists__cal
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncgp_adapter_is_duplicate__when_record_does_not_exist__calls_execute_and_returns_false():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
+    fake_connection_factory = FakeConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
     fake_session = FakeEmptySession()
     fake_event = Event()
 
@@ -238,7 +260,8 @@ async def test__sqlalchemy_asyncgp_adapter_is_duplicate__when_record_does_not_ex
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncpg_adapter_ack__puts_true_on_acknowledgement_queue():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
+    fake_connection_factory = FakeConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
     fake_event = Event()
 
     # Act
@@ -251,7 +274,8 @@ async def test__sqlalchemy_asyncpg_adapter_ack__puts_true_on_acknowledgement_que
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncpg_adapter_nack__puts_false_on_acknowledgement_queue():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
+    fake_connection_factory = FakeConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
     fake_event = Event()
 
     # Act
@@ -264,13 +288,33 @@ async def test__sqlalchemy_asyncpg_adapter_nack__puts_false_on_acknowledgement_q
 @pytest.mark.asyncio
 async def test__sqlalchemy_asyncpg_adapter_publish__when_query_returns_none__returns_none():
     # Arrange
-    adapter = SQLAlchemyAsyncpgAdapter()
+    fake_connection_factory = FakeEmptyConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
     fake_session = FakeEmptySession()
     fake_event = Event()
     fake_event.acknowledgement_queue.put_nowait(True)
 
     # Act
-    result = await adapter.publish(fake_event, fake_session)
+    result = await adapter._publish_task(fake_event, fake_session)
 
     # Assert
     assert result == None
+
+
+@pytest.mark.asyncio
+async def test__sqlalchemy_asyncpg_adapter_publish__calls_publish_test():
+    # Arrange
+    fake_event = Event()
+    fake_connection_factory = FakeEmptyConnectionFactory()
+    adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
+    fake_publish_task = FakePublishTask()
+    adapter._publish_task = fake_publish_task.publish
+
+    # ACT
+    try:
+        result = await asyncio.wait_for(adapter.publish(fake_event), timeout=0.1)
+    except asyncio.TimeoutError:
+        pass
+
+    # ASSERT
+    assert fake_publish_task.called == True
