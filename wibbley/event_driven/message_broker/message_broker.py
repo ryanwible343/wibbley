@@ -13,6 +13,8 @@ from wibbley.event_driven.messages import Event
 
 LOGGER = logging.getLogger("wibbley")
 
+ADAPTERS = {"sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter}
+
 
 class AsyncConnection(ABC):
     @abstractmethod
@@ -69,36 +71,28 @@ class MessageBroker:
         self,
         adapter_name: str,
         connection_factory: AsyncConnectionFactory,
+        adapters=ADAPTERS,
     ):
-        self.adapters = {
-            "sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter(connection_factory),
-        }
-        self.connection_factory = connection_factory
-        self.adapter_name = adapter_name
-
-    async def enable_exactly_once_processing(self):
-        adapter = self.adapters[self.adapter_name]
-        return await adapter.enable_exactly_once_processing(self.connection_factory)
+        if adapter_name not in adapters:
+            raise ValueError("Unavailable adapter selected")
+        self.adapter = adapters[adapter_name](connection_factory)
 
     async def stage(
         self,
         event: Event,
         session: AbstractAsyncSession,
     ):
-        adapter = self.adapters[self.adapter_name]
-        return await adapter.stage(event, session)
+        return await self.adapter.stage(event, session)
 
     async def publish(self, event: Event):
-        adapter = self.adapters[self.adapter_name]
-        return await adapter.publish(event)
+        return await self.adapter.publish(event)
 
     async def is_duplicate(
         self,
         event: Event,
         session: AbstractAsyncSession,
     ) -> bool:
-        adapter = self.adapters[self.adapter_name]
-        return await adapter.is_duplicate(event, session)
+        return await self.adapter.is_duplicate(event, session)
 
     def ack(self, event: Event):
         event.acknowledgement_queue.put_nowait(True)
