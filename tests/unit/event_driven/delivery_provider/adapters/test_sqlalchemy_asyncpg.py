@@ -172,7 +172,7 @@ async def test__sqlalchemy_asyncpg_adapter_stage__calls_exec_driver_sql_on_sessi
 
 
 @pytest.mark.asyncio
-async def test__sqlalchemy_asyncpg_adapter_publish__calls_exec_driver_sql_and_commit_on_session_connection():
+async def test__sqlalchemy_asyncpg_adapter_publish_task__calls_exec_driver_sql_and_commit_on_session_connection():
     # Arrange
     fake_connection_factory = FakeConnectionFactory()
     adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
@@ -195,7 +195,7 @@ async def test__sqlalchemy_asyncpg_adapter_publish__calls_exec_driver_sql_and_co
 
 
 @pytest.mark.asyncio
-async def test__sqlalchemy_asyncpg_adapter_publish__when_acknowledgement_queue_times_out__does_not_commit():
+async def test__sqlalchemy_asyncpg_adapter_publish_task__when_acknowledgement_queue_times_out__does_not_commit():
     # Arrange
     fake_connection_factory = FakeConnectionFactory()
     adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
@@ -286,7 +286,7 @@ async def test__sqlalchemy_asyncpg_adapter_nack__puts_false_on_acknowledgement_q
 
 
 @pytest.mark.asyncio
-async def test__sqlalchemy_asyncpg_adapter_publish__when_query_returns_none__returns_none():
+async def test__sqlalchemy_asyncpg_adapter_publish_task__when_query_returns_none__returns_none():
     # Arrange
     fake_connection_factory = FakeEmptyConnectionFactory()
     adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)

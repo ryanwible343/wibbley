@@ -459,15 +459,3 @@ def test__messagebus_listen__when_decorated_class_is_not_event_command_or_query_
         class FakeListener:
             def handle(self):
                 pass
-
-
-def test__messagebus_add_durability__sets_durability():
-    # Arrange
-    messagebus = Messagebus()
-
-    # Act
-    messagebus.add_durability(adapter="test", connection_factory="test")
-
-    # Assert
-    assert messagebus.is_durable == True
-    assert messagebus.connection_factory == "test"

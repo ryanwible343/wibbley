@@ -9,9 +9,6 @@ from wibbley.event_driven.delivery_provider.adapters.abstract_adapter import (
 from wibbley.event_driven.delivery_provider.adapters.sqlalchemy_asyncpg import (
     SQLAlchemyAsyncpgAdapter,
 )
-from wibbley.event_driven.delivery_provider.delivery_provider_adapter_global import (
-    delivery_provider_adapter,
-)
 from wibbley.event_driven.messages import Event
 
 LOGGER = logging.getLogger("wibbley")

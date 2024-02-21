@@ -6,9 +6,6 @@ from wibbley.event_driven.delivery_provider.delivery_provider import (
     AsyncConnectionFactory,
     ConnectionFactory,
 )
-from wibbley.event_driven.delivery_provider.delivery_provider_adapter_global import (
-    delivery_provider_adapter,
-)
 from wibbley.event_driven.messages import Command, Event, Query
 from wibbley.event_driven.queue import wibbley_queue
 from wibbley.utilities.async_retry import AsyncRetry
@@ -92,20 +89,6 @@ class Messagebus:
             await handler(message)
 
         await inner_handler(message)
-
-    # async def enable_exactly_once_processing(self):
-    #     await enable_exactly_once_processing(
-    #         self.connection_factory, delivery_provider_adapter["name"]
-    #     )
-
-    def add_durability(
-        self,
-        adapter: Literal["sqlalchemy+asyncpg",],
-        connection_factory: Union[AsyncConnectionFactory, ConnectionFactory],
-    ):
-        self.connection_factory = connection_factory
-        self.is_durable = True
-        delivery_provider_adapter["name"] = adapter
 
     async def handle(self, message):
         if isinstance(message, Command):
