@@ -23,15 +23,16 @@ class CreateSquareCommand(Command):
 
 
 @messagebus.listen(CreateSquareCommand)
-async def my_command_listener(command, message_broker=message_broker):
-    sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
-    async with sessionmaker() as session:
-        square = Shape(id=str(uuid4()), type="square", volume=4)
-        session.add(square)
-        event = SquareCreatedEvent()
-        await message_broker.stage(event, session)
-        await session.commit()
-        await message_broker.publish(event)
+class Test:
+    async def handle(self, command, message_broker=message_broker):
+        sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+        async with sessionmaker() as session:
+            square = Shape(id=str(uuid4()), type="square", volume=4)
+            session.add(square)
+            event = SquareCreatedEvent()
+            await message_broker.stage(event, session)
+            await session.commit()
+            await message_broker.publish(event)
 
 
 @messagebus.listen(SquareCreatedEvent)

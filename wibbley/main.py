@@ -5,6 +5,7 @@ import os
 import signal
 import ssl
 import sys
+from dataclasses import dataclass
 from signal import SIGINT, SIGTERM
 from typing import Dict, List, Union
 
@@ -98,6 +99,8 @@ def load_module(module_path: str):
 
 async def handle_message(queue, messagebus):
     message = await queue.get()
+    count_of_event_handlers = len(messagebus.event_handlers[type(message)])
+    await message.acknowledgement_queue.put(count_of_event_handlers)
     await messagebus.handle(message)
     queue.task_done()
 
