@@ -1,6 +1,6 @@
 import pytest
 
-from wibbley.event_driven.message_broker.message_broker import MessageBroker
+from wibbley.event_driven.message_client.message_client import MessageClient
 from wibbley.event_driven.messages import Event
 
 
@@ -40,20 +40,20 @@ async def test__stage__calls_adapter():
     fake_event = "event"
     fake_session = "session"
     fake_connection_factory = FakeConnectionFactory()
-    message_broker = MessageBroker(
+    message_client = MessageClient(
         adapter_name="fake",
         connection_factory=fake_connection_factory,
         adapters=allowed_adapters,
     )
 
     # Act
-    await message_broker.stage(
+    await message_client.stage(
         fake_event,
         fake_session,
     )
 
     # Assert
-    assert message_broker.adapter.stage_calls == [(fake_event, fake_session)]
+    assert message_client.adapter.stage_calls == [(fake_event, fake_session)]
 
 
 @pytest.mark.asyncio
@@ -63,17 +63,17 @@ async def test__publish__calls_adapter():
     fake_event = "event"
     fake_session = "session"
     fake_connection_factory = FakeConnectionFactory()
-    message_broker = MessageBroker(
+    message_client = MessageClient(
         adapter_name="fake",
         connection_factory=fake_connection_factory,
         adapters=allowed_adapters,
     )
 
     # Act
-    await message_broker.publish(fake_event)
+    await message_client.publish(fake_event)
 
     # Assert
-    assert message_broker.adapter.publish_calls == [fake_event]
+    assert message_client.adapter.publish_calls == [fake_event]
 
 
 @pytest.mark.asyncio
@@ -83,20 +83,20 @@ async def test__is_duplicate__calls_adapter():
     fake_event = "event"
     fake_session = "session"
     fake_connection_factory = FakeConnectionFactory()
-    message_broker = MessageBroker(
+    message_client = MessageClient(
         adapter_name="fake",
         connection_factory=fake_connection_factory,
         adapters=allowed_adapters,
     )
 
     # Act
-    await message_broker.is_duplicate(
+    await message_client.is_duplicate(
         fake_event,
         fake_session,
     )
 
     # Assert
-    assert message_broker.adapter.is_duplicate_calls == [(fake_event, fake_session)]
+    assert message_client.adapter.is_duplicate_calls == [(fake_event, fake_session)]
 
 
 @pytest.mark.asyncio
@@ -105,14 +105,14 @@ async def test__ack__adds_true_to_event_acknowledgement_queue():
     allowed_adapters = {"fake": FakeAdapter}
     fake_event = Event()
     fake_connection_factory = FakeConnectionFactory()
-    message_broker = MessageBroker(
+    message_client = MessageClient(
         adapter_name="fake",
         connection_factory=fake_connection_factory,
         adapters=allowed_adapters,
     )
 
     # Act
-    result = message_broker.ack(fake_event)
+    result = message_client.ack(fake_event)
 
     # Assert
     assert fake_event.acknowledgement_queue.get_nowait() is True
@@ -124,26 +124,26 @@ async def test__nack__adds_false_to_event_acknowledgement_queue():
     allowed_adapters = {"fake": FakeAdapter}
     fake_event = Event()
     fake_connection_factory = FakeConnectionFactory()
-    message_broker = MessageBroker(
+    message_client = MessageClient(
         adapter_name="fake",
         connection_factory=fake_connection_factory,
         adapters=allowed_adapters,
     )
     # Act
-    result = message_broker.nack(fake_event)
+    result = message_client.nack(fake_event)
 
     # Assert
     assert fake_event.acknowledgement_queue.get_nowait() is False
 
 
 @pytest.mark.asyncio
-async def test__message_broker_init__when_adapter_is_invalid__raises_value_error():  # Arrange
+async def test__message_client_init__when_adapter_is_invalid__raises_value_error():  # Arrange
     allowed_adapters = {"fake": FakeAdapter}
     fake_connection_factory = FakeConnectionFactory()
 
     # Act/Assert
     with pytest.raises(ValueError):
-        MessageBroker(
+        MessageClient(
             adapter_name="not_there",
             connection_factory=fake_connection_factory,
             adapters=allowed_adapters,

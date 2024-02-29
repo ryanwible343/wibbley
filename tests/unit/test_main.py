@@ -4,6 +4,7 @@ import pytest
 from click.testing import CliRunner
 
 from wibbley.api.app import App
+from wibbley.event_driven.messages import Event
 from wibbley.main import (
     SignalHandlerInstaller,
     handle_message,
@@ -17,10 +18,15 @@ from wibbley.main import (
 )
 
 
+async def fake_handler(message):
+    pass
+
+
 class FakeMessagebus:
     def __init__(self):
         self.is_durable = False
         self.enable_exactly_once_processing_called = False
+        self.event_handlers = {Event: [fake_handler]}
 
     async def handle(self, message):
         pass
@@ -136,7 +142,7 @@ def test__load_module__when_parameter_does_not_contain_colon__returns_none():
 @pytest.mark.asyncio
 async def test__handle_message__marks_task_as_done():
     # ARRANGE
-    message = {"type": "task_done", "task_id": "1234"}
+    message = Event()
     messagebus = FakeMessagebus()
     queue = asyncio.Queue()
     queue.put_nowait(message)
@@ -153,7 +159,8 @@ async def test__read_from_queue__calls_handle_message():
     # ARRANGE
     messagebus = FakeMessagebus()
     queue = asyncio.Queue()
-    queue.put_nowait({"type": "task_done", "task_id": "1234"})
+    message = Event()
+    queue.put_nowait(message)
 
     # ACT
     try:

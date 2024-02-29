@@ -3,10 +3,10 @@ import sys
 from abc import ABC, abstractmethod
 from typing import Dict, Union
 
-from wibbley.event_driven.message_broker.adapters.abstract_adapter import (
+from wibbley.event_driven.message_client.adapters.abstract_adapter import (
     AbstractAdapter,
 )
-from wibbley.event_driven.message_broker.adapters.sqlalchemy_asyncpg import (
+from wibbley.event_driven.message_client.adapters.sqlalchemy_asyncpg import (
     SQLAlchemyAsyncpgAdapter,
 )
 from wibbley.event_driven.messages import Event
@@ -66,7 +66,7 @@ class AbstractAsyncSession(ABC):
         """Commit the current transaction."""
 
 
-class MessageBroker:
+class MessageClient:
     def __init__(
         self,
         adapter_name: str,

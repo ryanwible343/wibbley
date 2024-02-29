@@ -6,7 +6,7 @@ from logging import getLogger
 
 import orjson
 
-from wibbley.event_driven.message_broker.adapters.abstract_adapter import (
+from wibbley.event_driven.message_client.adapters.abstract_adapter import (
     AbstractAdapter,
 )
 from wibbley.event_driven.queue import wibbley_queue
@@ -35,7 +35,7 @@ class SQLAlchemyAsyncpgAdapter(AbstractAdapter):
     async def enable_exactly_once_processing(self):
         schema_stmt = "CREATE SCHEMA IF NOT EXISTS wibbley;"
         outbox_stmt = "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN)"
-        inbox_stmt = "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID PRIMARY KEY, event_listener String, created_at TIMESTAMPTZ, event JSONB)"
+        inbox_stmt = "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB)"
         await self.execute_async(schema_stmt)
         await self.execute_async(inbox_stmt)
         await self.execute_async(outbox_stmt)

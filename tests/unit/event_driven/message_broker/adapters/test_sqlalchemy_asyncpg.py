@@ -4,7 +4,7 @@ from copy import copy
 import orjson
 import pytest
 
-from wibbley.event_driven.message_broker.adapters.sqlalchemy_asyncpg import (
+from wibbley.event_driven.message_client.adapters.sqlalchemy_asyncpg import (
     SQLAlchemyAsyncpgAdapter,
 )
 from wibbley.event_driven.messages import Event
@@ -177,6 +177,7 @@ async def test__sqlalchemy_asyncpg_adapter_publish_task__calls_exec_driver_sql_a
     fake_connection_factory = FakeConnectionFactory()
     adapter = SQLAlchemyAsyncpgAdapter(fake_connection_factory)
     fake_event = Event()
+    fake_event.acknowledgement_queue.put_nowait(1)
     fake_event.acknowledgement_queue.put_nowait(True)
 
     # Act
