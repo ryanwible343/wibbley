@@ -6,10 +6,10 @@ from logging import getLogger
 
 import orjson
 
+from wibbley.event_driven.message_broker.queue import wibbley_queue
 from wibbley.event_driven.message_client.adapters.abstract_adapter import (
     AbstractAdapter,
 )
-from wibbley.event_driven.queue import wibbley_queue
 from wibbley.utilities.async_retry import AsyncRetry
 
 LOGGER = getLogger("wibbley")

@@ -4,7 +4,7 @@ import pytest
 from click.testing import CliRunner
 
 from wibbley.api.app import App
-from wibbley.event_driven.messages import Event
+from wibbley.event_driven.messagebus.messages import Event
 from wibbley.main import (
     SignalHandlerInstaller,
     handle_message,

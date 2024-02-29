@@ -14,7 +14,7 @@ import uvicorn
 import uvloop
 
 import wibbley
-from wibbley.event_driven.queue import wibbley_queue
+from wibbley.event_driven.message_broker.queue import wibbley_queue
 
 SIGNAL_HANDLERS = [SIGINT, SIGTERM]
 DEFAULT_EVENT_HANDLER_TASK_COUNT = 100

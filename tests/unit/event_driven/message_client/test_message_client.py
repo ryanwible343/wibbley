@@ -1,7 +1,7 @@
 import pytest
 
 from wibbley.event_driven.message_client.message_client import MessageClient
-from wibbley.event_driven.messages import Event
+from wibbley.event_driven.messagebus.messages import Event
 
 
 class FakeConnectionFactory:

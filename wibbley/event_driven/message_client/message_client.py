@@ -9,7 +9,7 @@ from wibbley.event_driven.message_client.adapters.abstract_adapter import (
 from wibbley.event_driven.message_client.adapters.sqlalchemy_asyncpg import (
     SQLAlchemyAsyncpgAdapter,
 )
-from wibbley.event_driven.messages import Event
+from wibbley.event_driven.messagebus.messages import Event
 
 LOGGER = logging.getLogger("wibbley")
 

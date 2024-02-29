@@ -2,8 +2,8 @@ import asyncio
 
 import pytest
 
-from wibbley.event_driven.messagebus import Messagebus, send
-from wibbley.event_driven.messages import Command, Event, Query
+from wibbley.event_driven.messagebus.messagebus import Messagebus, send
+from wibbley.event_driven.messagebus.messages import Command, Event, Query
 from wibbley.utilities.async_retry import AsyncRetry
 
 

@@ -2,12 +2,12 @@ import logging
 from functools import wraps
 from typing import Literal, Union
 
+from wibbley.event_driven.message_broker.queue import wibbley_queue
 from wibbley.event_driven.message_client.message_client import (
     AsyncConnectionFactory,
     ConnectionFactory,
 )
-from wibbley.event_driven.messages import Command, Event, Query
-from wibbley.event_driven.queue import wibbley_queue
+from wibbley.event_driven.messagebus.messages import Command, Event, Query
 from wibbley.utilities.async_retry import AsyncRetry
 
 LOGGER = logging.getLogger(__name__)
