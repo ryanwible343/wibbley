@@ -6,6 +6,7 @@ from copy import copy
 import orjson
 
 from wibbley.event_driven.message_broker.queue import wibbley_queue
+from wibbley.event_driven.message_client.adapters import ADAPTERS
 from wibbley.event_driven.message_client.adapters.abstract_adapter import (
     AbstractAdapter,
 )
@@ -16,8 +17,6 @@ from wibbley.event_driven.messagebus.messages import Event
 from wibbley.utilities.async_retry import AsyncRetry
 
 LOGGER = logging.getLogger("wibbley")
-
-ADAPTERS = {"sqlalchemy+asyncpg": SQLAlchemyAsyncpgAdapter}
 
 
 class AsyncConnection(ABC):
