@@ -6,7 +6,7 @@ services:
       context: ../../
       dockerfile: examples/durable_messagebus/Dockerfile
       target: dev
-    command: wibbley --app src.app:app --messagebus src.messagebus:messagebus --host 0.0.0.0
+    command: wibbley --app src.app:app --message-broker src.messagebus:message_broker --host 0.0.0.0
     depends_on:
       - postgres
     environment:

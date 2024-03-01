@@ -5,10 +5,25 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from src.database import engine
 from src.model import Shape
 
-from wibbley.event_driven import Command, Event, Messagebus, MessageClient
+from wibbley.event_driven import (
+    Command,
+    Event,
+    MessageBroker,
+    MessageBrokerSettings,
+    Messagebus,
+    MessageClient,
+)
 
 messagebus = Messagebus()
 message_client = MessageClient("sqlalchemy+asyncpg", engine)
+message_broker = MessageBroker(
+    messagebus=messagebus,
+    adapter_name="sqlalchemy+asyncpg",
+    connection_factory=engine,
+    message_broker_settings=MessageBrokerSettings(
+        event_handler_count=1, outbox_poller_count=1
+    ),
+)
 
 
 LOGGER = logging.getLogger(__name__)

@@ -20,6 +20,7 @@ class Messagebus:
         self.query_handlers = {}
         self.async_retry = AsyncRetry()
         self.is_durable = False
+        self.event_type_registry = {}
 
     def is_function(self, obj):
         if callable(obj):
@@ -36,40 +37,74 @@ class Messagebus:
     def listen(self, message):
         def function_decorator(func):
             if issubclass(message, Event):
+                self.event_type_registry[message.__name__] = message
                 if self.event_handlers.get(message):
-                    self.event_handlers[message].append(func)
+                    self.event_handlers[message].append(
+                        {
+                            "handler_name": func.__name__,
+                            "handler": func,
+                        }
+                    )
                 else:
-                    self.event_handlers[message] = [func]
+                    self.event_handlers[message] = [
+                        {
+                            "handler_name": func.__name__,
+                            "handler": func,
+                        }
+                    ]
             elif issubclass(message, Command):
                 if self.command_handlers.get(message):
                     raise ValueError(
                         f"Command handler already registered for {message}"
                     )
-                self.command_handlers[message] = func
+                self.command_handlers[message] = {
+                    "handler_name": func.__name__,
+                    "handler": func,
+                }
             elif issubclass(message, Query):
                 if self.query_handlers.get(message):
                     raise ValueError(f"Query handler already registered for {message}")
-                self.query_handlers[message] = func
+                self.query_handlers[message] = {
+                    "handler_name": func.__name__,
+                    "handler": func,
+                }
             else:
                 raise ValueError(f"Unknown message type: {type(message)}")
             return func
 
         def class_decorator(cls):
             if issubclass(message, Event):
+                self.event_type_registry[message.__name__] = message
                 if self.event_handlers.get(message):
-                    self.event_handlers[message].append(cls().handle)
+                    self.event_handlers[message].append(
+                        {
+                            "handler_name": cls.__name__,
+                            "handler": cls().handle,
+                        }
+                    )
                 else:
-                    self.event_handlers[message] = [cls().handle]
+                    self.event_handlers[message] = [
+                        {
+                            "handler_name": cls.__name__,
+                            "handler": cls().handle,
+                        }
+                    ]
             elif issubclass(message, Command):
                 if self.command_handlers.get(message):
                     raise ValueError(
                         f"Command handler already registered for {message}"
                     )
-                self.command_handlers[message] = cls().handle
+                self.command_handlers[message] = {
+                    "handler_name": cls.__name__,
+                    "handler": cls().handle,
+                }
             elif issubclass(message, Query):
                 if self.query_handlers.get(message):
                     raise ValueError(f"Query handler already registered for {message}")
-                self.query_handlers[message] = cls().handle
+                self.query_handlers[message] = {
+                    "handler_name": cls.__name__,
+                    "handler": cls().handle,
+                }
             else:
                 raise ValueError(f"Unknown message type: {type(message)}")
             return cls
@@ -95,7 +130,7 @@ class Messagebus:
             if not self.command_handlers.get(type(message)):
                 LOGGER.error(f"No command handler registered for {type(message)}")
                 return False
-            command_handler = self.command_handlers[type(message)]
+            command_handler = self.command_handlers[type(message)]["handler"]
             try:
                 await command_handler(message)
             except Exception as e:
@@ -110,7 +145,7 @@ class Messagebus:
                 return False
             for event_handler in self.event_handlers[type(message)]:
                 try:
-                    await self.execute_event_handler(event_handler, message)
+                    await self.execute_event_handler(event_handler["handler"], message)
                 except Exception:
                     LOGGER.exception(
                         f"Event could not be handled by handler: {event_handler} for event: {message}"
@@ -121,7 +156,7 @@ class Messagebus:
             if not self.query_handlers.get(type(message)):
                 LOGGER.error(f"No query handler registered for {type(message)}")
                 return None
-            query_handler = self.query_handlers[type(message)]
+            query_handler = self.query_handlers[type(message)]["handler"]
             try:
                 result = await query_handler(message)
             except Exception as e:

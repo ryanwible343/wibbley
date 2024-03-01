@@ -27,8 +27,9 @@ class SQLAlchemyAsyncpgAdapter:
     def get_table_creation_statements(self):
         return [
             "CREATE SCHEMA IF NOT EXISTS wibbley;",
-            "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN)",
-            "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB)",
+            "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN, attempts INT);",
+            "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID, fanout_key VARCHAR(200), created_at TIMESTAMPTZ, event JSONB, PRIMARY KEY (id, fanout_key));",
+            "CREATE TABLE IF NOT EXISTS wibbley.fanout (id UUID, fanout_key VARCHAR(200), created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN, PRIMARY KEY (id, fanout_key));",
         ]
 
     async def get_connection(self):
@@ -40,20 +41,39 @@ class SQLAlchemyAsyncpgAdapter:
     async def commit_connection(self, connection):
         await connection.commit()
 
-    def get_outbox_insert_stmt(self, event_id, event_created_at, event_json):
-        return f"INSERT INTO wibbley.outbox (id, created_at, event, delivered) VALUES ('{event_id}', '{event_created_at}', '{event_json}', FALSE)"
+    def get_outbox_insert_stmt(self, event_id, event_created_at, event_json, attempts):
+        return f"INSERT INTO wibbley.outbox (id, created_at, event, delivered, attempts) VALUES ('{event_id}', '{event_created_at}', '{event_json}', FALSE, {attempts})"
 
     def get_outbox_select_stmt(self, event_id):
         return f"SELECT * FROM wibbley.outbox WHERE id = '{event_id}';"
 
-    def get_outbox_update_stmt(self, event_id):
-        return f"UPDATE wibbley.outbox SET delivered = TRUE WHERE id = '{event_id}';"
+    def get_outbox_outstanding_select_stmt(self):
+        return f"SELECT * FROM wibbley.outbox WHERE delivered = FALSE;"
+
+    def get_outbox_update_stmt(self, event_id, attempts):
+        return f"UPDATE wibbley.outbox SET delivered = TRUE, attempts = {attempts} WHERE id = '{event_id}';"
+
+    def get_outbox_failed_delivery_update_stmt(self, event_id, attempts):
+        return (
+            f"UPDATE wibbley.outbox SET attempts = {attempts} WHERE id = '{event_id}';"
+        )
 
     def get_inbox_select_stmt(self, event_id):
         return f"SELECT * FROM wibbley.inbox WHERE id = '{event_id}';"
 
-    def get_inbox_insert_stmt(self, event_id, event_created_at, event_json):
-        return f"INSERT INTO wibbley.inbox (id, created_at, event) VALUES ('{event_id}', '{event_created_at}', '{event_json}')"
+    def get_inbox_insert_stmt(self, event_id, event_created_at, fanout_key, event_json):
+        return f"INSERT INTO wibbley.inbox (id, created_at, event, fanout_key) VALUES ('{event_id}', '{event_created_at}', '{event_json}', '{fanout_key}')"
+
+    def get_fanout_insert_stmt(
+        self, event_id, fanout_key, event_created_at, event_json
+    ):
+        return f"INSERT INTO wibbley.fanout (id, fanout_key, created_at, event, delivered) VALUES ('{event_id}', '{fanout_key}', '{event_created_at}', '{event_json}', FALSE)"
+
+    def get_fanout_select_all_stmt(self, event_id):
+        return f"SELECT * FROM wibbley.fanout WHERE id = '{event_id}';"
+
+    def delete_fanout_stmt(self, event_id, fanout_key):
+        return f"DELETE FROM wibbley.fanout WHERE id = '{event_id}' AND fanout_key = '{fanout_key}';"
 
     async def execute_stmt_on_connection(self, stmt, connection):
         return await connection.exec_driver_sql(stmt)
@@ -64,3 +84,6 @@ class SQLAlchemyAsyncpgAdapter:
 
     def get_first_row(self, result):
         return result.fetchone()
+
+    def get_all_rows(self, result):
+        return result.fetchall()

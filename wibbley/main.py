@@ -14,7 +14,7 @@ import uvicorn
 import uvloop
 
 import wibbley
-from wibbley.event_driven.message_broker.queue import wibbley_queue
+from wibbley.event_driven.message_broker.message_broker import MessageBroker
 
 SIGNAL_HANDLERS = [SIGINT, SIGTERM]
 DEFAULT_EVENT_HANDLER_TASK_COUNT = 100
@@ -144,7 +144,7 @@ def install_signal_handlers(
 
 
 async def serve_app(
-    messagebus,
+    message_broker,
     task_count: int,
     server: uvicorn.Server,
     background_task: read_from_queue = read_from_queue,
@@ -152,14 +152,8 @@ async def serve_app(
 ):
     loop = asyncio.get_event_loop()
     event_handler_tasks = []
-    if messagebus:
-        if messagebus.is_durable:
-            asyncio.create_task(messagebus.enable_exactly_once_processing())
-            asyncio.gather(*event_handler_tasks)
-        event_handler_tasks = [
-            asyncio.create_task(background_task(wibbley_queue, messagebus))
-            for _ in range(task_count)
-        ]
+    if message_broker:
+        asyncio.create_task(message_broker.start())
         install_signal_handlers(server, event_handler_tasks, loop)
     tasks = event_handler_tasks + [asyncio.create_task(server.serve())]
     await asyncio.gather(*tasks)
@@ -181,10 +175,10 @@ def print_version(
     help="Name of the module containing the ASGI application. Format: module_path.module_name:app_name",
 )
 @click.option(
-    "--messagebus",
+    "--message-broker",
     type=str,
     default=None,
-    help="Name of the module containing the messagebus. Format: module_path.module_name:messagebus_name",
+    help="Name of the module containing the message_broker. Format: module_path.module_name:message_broker_name",
 )
 @click.option(
     "--event-handler-task-count",
@@ -381,7 +375,7 @@ def print_version(
 )
 def main(
     app,
-    messagebus,
+    message_broker,
     event_handler_task_count,
     host: str,
     port: int,
@@ -421,10 +415,10 @@ def main(
     if not loaded_app:
         sys.exit(1)
 
-    loaded_messagebus = None
-    if messagebus:
-        loaded_messagebus = load_module(messagebus)
-        if not loaded_messagebus:
+    loaded_message_broker = None
+    if message_broker:
+        loaded_message_broker = load_module(message_broker)
+        if not loaded_message_broker:
             sys.exit(1)
 
     config = uvicorn.Config(
@@ -466,7 +460,7 @@ def main(
     uvloop.install()
     uvloop.run(
         serve_app(
-            messagebus=loaded_messagebus,
+            message_broker=loaded_message_broker,
             task_count=event_handler_task_count,
             server=server,
         )

@@ -14,6 +14,10 @@ class Event:
         default_factory=lambda: asyncio.Queue()
     )
 
+    def __post_init__(self):
+        self.event_type = type(self).__name__
+        self.fanout_key = self.event_type
+
 
 class Command:
     pass

@@ -91,7 +91,7 @@ class MessageClient:
         del event_dict["acknowledgement_queue"]
         event_json = orjson.dumps(event_dict).decode("utf-8")
         stmt = self.adapter.get_outbox_insert_stmt(
-            event.id, event.created_at, event_json
+            event.id, event.created_at, event_json, 0
         )
         return await self.adapter.execute_stmt_on_transaction(stmt, session)
 
@@ -113,7 +113,9 @@ class MessageClient:
             return
 
         event_id = record.id
-        update_stmt = self.adapter.get_outbox_update_stmt(event_id)
+        print("record", record)
+        attempts = record.attempts
+        update_stmt = self.adapter.get_outbox_update_stmt(event_id, attempts + 1)
         await self.adapter.execute_stmt_on_connection(update_stmt, connection)
         await queue.put(event)
         expected_ack_count = await wait_for_ack(event)
@@ -149,7 +151,7 @@ class MessageClient:
         del event_dict["acknowledgement_queue"]
         event_json = orjson.dumps(event_dict).decode("utf-8")
         stmt = self.adapter.get_inbox_insert_stmt(
-            event.id, event.created_at, event_json
+            event.id, event.created_at, event.fanout_key, event_json
         )
         await self.adapter.execute_stmt_on_transaction(stmt, session)
         return False
