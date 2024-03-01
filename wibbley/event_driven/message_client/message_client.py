@@ -118,6 +118,9 @@ class MessageClient:
         await self.adapter.execute_stmt_on_connection(update_stmt, connection)
         await queue.put(event)
         expected_ack_count = await wait_for_ack(event)
+        if expected_ack_count is False:
+            await self.adapter.close_connection(connection)
+            return
         acked_count = 0
         for _ in range(expected_ack_count):
             ack = await wait_for_ack(event)

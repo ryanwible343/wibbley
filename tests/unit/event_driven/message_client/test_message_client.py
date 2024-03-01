@@ -402,3 +402,77 @@ async def test__nack__puts_false_on_acknowledgement_queue():
 
     # Assert
     assert fake_event.acknowledgement_queue.get_nowait() == False
+
+
+@pytest.mark.asyncio
+async def test__publish_task__when_ack_times_out_on_expected_ack_count__closes_connection_before_committing():
+    # Arrange
+    allowed_adapters = {"fake": FakeAdapter}
+    fake_event = Event()
+    fake_queue = asyncio.Queue()
+    fake_connection_factory = FakeConnectionFactory()
+    message_client = MessageClient(
+        adapter_name="fake",
+        connection_factory=fake_connection_factory,
+        adapters=allowed_adapters,
+    )
+    message_client.ack_timeout = 0
+
+    # ACT
+    await message_client._publish_task(fake_event, fake_queue)
+
+    # Assert
+    assert message_client.adapter.get_connection_calls == [None]
+    assert message_client.adapter.get_outbox_select_stmt_calls == [fake_event.id]
+    assert message_client.adapter.get_outbox_update_stmt_calls == ["test"]
+    assert message_client.adapter.execute_stmt_on_connection_calls == [
+        ("fake_stmt", None),
+        ("fake_stmt", None),
+    ]
+    assert message_client.adapter.commit_connection_calls == []
+    assert message_client.adapter.close_connection_calls == [None]
+
+
+@pytest.mark.asyncio
+async def test__publish_task__when_ack_times_out_on_ack__closes_connection_before_committing():
+    # Arrange
+    allowed_adapters = {"fake": FakeAdapter}
+    fake_event = Event()
+    fake_queue = asyncio.Queue()
+    fake_connection_factory = FakeConnectionFactory()
+    message_client = MessageClient(
+        adapter_name="fake",
+        connection_factory=fake_connection_factory,
+        adapters=allowed_adapters,
+    )
+    message_client.ack_timeout = 0
+    fake_event.acknowledgement_queue.put_nowait(1)
+
+    # ACT
+    await message_client._publish_task(fake_event, fake_queue)
+
+    # Assert
+    assert message_client.adapter.get_connection_calls == [None]
+    assert message_client.adapter.get_outbox_select_stmt_calls == [fake_event.id]
+    assert message_client.adapter.get_outbox_update_stmt_calls == ["test"]
+    assert message_client.adapter.execute_stmt_on_connection_calls == [
+        ("fake_stmt", None),
+        ("fake_stmt", None),
+    ]
+    assert message_client.adapter.commit_connection_calls == []
+    assert message_client.adapter.close_connection_calls == [None]
+
+
+@pytest.mark.asyncio
+async def test__message_client_init__when_adapter_does_not_exist__raises_value_error():
+    # Arrange
+    allowed_adapters = {"fake": FakeAdapter}
+    fake_connection_factory = FakeConnectionFactory()
+
+    # Act
+    with pytest.raises(ValueError):
+        MessageClient(
+            adapter_name="non_existent",
+            connection_factory=fake_connection_factory,
+            adapters=allowed_adapters,
+        )
