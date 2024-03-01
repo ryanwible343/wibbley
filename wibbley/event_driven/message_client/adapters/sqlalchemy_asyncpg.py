@@ -20,92 +20,47 @@ class PreFlightEvent:
     acknowledgement_queue: asyncio.Queue
 
 
-class SQLAlchemyAsyncpgAdapter(AbstractAdapter):
+class SQLAlchemyAsyncpgAdapter:
     def __init__(self, connection_factory):
-        self.async_retry = AsyncRetry()
-        self.ack_timeout = 2
         self.connection_factory = connection_factory
 
-    async def execute_async(self, stmt):
-        connection = await self.connection_factory.connect()
-        await connection.exec_driver_sql(stmt)
+    def get_table_creation_statements(self):
+        return [
+            "CREATE SCHEMA IF NOT EXISTS wibbley;",
+            "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN)",
+            "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB)",
+        ]
+
+    async def get_connection(self):
+        return await self.connection_factory.connect()
+
+    async def close_connection(self, connection):
+        await connection.close()
+
+    async def commit_connection(self, connection):
         await connection.commit()
-        await connection.close()
 
-    async def enable_exactly_once_processing(self):
-        schema_stmt = "CREATE SCHEMA IF NOT EXISTS wibbley;"
-        outbox_stmt = "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN)"
-        inbox_stmt = "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB)"
-        await self.execute_async(schema_stmt)
-        await self.execute_async(inbox_stmt)
-        await self.execute_async(outbox_stmt)
-        return
+    def get_outbox_insert_stmt(self, event_id, event_created_at, event_json):
+        return f"INSERT INTO wibbley.outbox (id, created_at, event, delivered) VALUES ('{event_id}', '{event_created_at}', '{event_json}', FALSE)"
 
-    async def stage(self, event, session):
-        event_dict = copy(vars(event))
-        del event_dict["acknowledgement_queue"]
-        event_json = orjson.dumps(event_dict).decode("utf-8")
-        stmt = f"INSERT INTO wibbley.outbox (id, created_at, event, delivered) VALUES ('{event.id}', '{event.created_at}', '{event_json}', FALSE)"
-        session_connection = await session.connection()
-        await session_connection.exec_driver_sql(stmt)
+    def get_outbox_select_stmt(self, event_id):
+        return f"SELECT * FROM wibbley.outbox WHERE id = '{event_id}';"
 
-    async def _publish_task(self, event, queue):
-        @self.async_retry
-        async def wait_for_ack(event):
-            try:
-                return await asyncio.wait_for(
-                    event.acknowledgement_queue.get(), timeout=self.ack_timeout
-                )
-            except asyncio.TimeoutError:
-                return False
+    def get_outbox_update_stmt(self, event_id):
+        return f"UPDATE wibbley.outbox SET delivered = TRUE WHERE id = '{event_id}';"
 
-        select_stmt = f"SELECT * FROM wibbley.outbox WHERE id = '{event.id}';"
-        connection = await self.connection_factory.connect()
-        result = await connection.exec_driver_sql(select_stmt)
-        record = result.fetchone()
-        if record is None:
-            return
+    def get_inbox_select_stmt(self, event_id):
+        return f"SELECT * FROM wibbley.inbox WHERE id = '{event_id}';"
 
-        event_id = record.id
-        update_stmt = (
-            f"UPDATE wibbley.outbox SET delivered = TRUE WHERE id = '{event_id}';"
-        )
-        await connection.exec_driver_sql(update_stmt)
-        await queue.put(event)
-        expected_ack_count = await wait_for_ack(event)
-        acked_count = 0
-        for _ in range(expected_ack_count):
-            ack = await wait_for_ack(event)
-            if ack:
-                acked_count += 1
-        if acked_count == expected_ack_count:
-            LOGGER.info(f"Event {event.id} acknowledged")
-            await connection.commit()
-        await connection.close()
+    def get_inbox_insert_stmt(self, event_id, event_created_at, event_json):
+        return f"INSERT INTO wibbley.inbox (id, created_at, event) VALUES ('{event_id}', '{event_created_at}', '{event_json}')"
 
-    async def publish(self, event, queue=wibbley_queue):
-        asyncio.create_task(self._publish_task(event, queue))
+    async def execute_stmt_on_connection(self, stmt, connection):
+        return await connection.exec_driver_sql(stmt)
 
-    async def is_duplicate(self, event, session) -> bool:
-        select_stmt = f"SELECT * FROM wibbley.inbox WHERE id = '{event.id}';"
-        session_connection = await session.connection()
-        result = await session_connection.exec_driver_sql(select_stmt)
-        record = result.fetchone()
-        if record:
-            self.ack(event)
-            return True
+    async def execute_stmt_on_transaction(self, stmt, transaction_connection):
+        connection = await transaction_connection.connection()
+        return await self.execute_stmt_on_connection(stmt, connection)
 
-        event_dict = copy(vars(event))
-        del event_dict["acknowledgement_queue"]
-        event_json = orjson.dumps(event_dict).decode("utf-8")
-        stmt = f"INSERT INTO wibbley.inbox (id, created_at, event) VALUES ('{event.id}', '{event.created_at}', '{event_json}')"
-        await session_connection.exec_driver_sql(stmt)
-        return False
-
-    def ack(self, event):
-        event.acknowledgement_queue.put_nowait(True)
-        return True
-
-    def nack(self, event):
-        event.acknowledgement_queue.put_nowait(False)
-        return False
+    def get_first_row(self, result):
+        return result.fetchone()

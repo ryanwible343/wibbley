@@ -1,8 +1,11 @@
+import asyncio
 import logging
-import sys
 from abc import ABC, abstractmethod
-from typing import Dict, Union
+from copy import copy
 
+import orjson
+
+from wibbley.event_driven.message_broker.queue import wibbley_queue
 from wibbley.event_driven.message_client.adapters.abstract_adapter import (
     AbstractAdapter,
 )
@@ -10,6 +13,7 @@ from wibbley.event_driven.message_client.adapters.sqlalchemy_asyncpg import (
     SQLAlchemyAsyncpgAdapter,
 )
 from wibbley.event_driven.messagebus.messages import Event
+from wibbley.utilities.async_retry import AsyncRetry
 
 LOGGER = logging.getLogger("wibbley")
 
@@ -76,23 +80,77 @@ class MessageClient:
         if adapter_name not in adapters:
             raise ValueError("Unavailable adapter selected")
         self.adapter = adapters[adapter_name](connection_factory)
+        self.async_retry = AsyncRetry()
+        self.ack_timeout = 5
 
     async def stage(
         self,
         event: Event,
         session: AbstractAsyncSession,
     ):
-        return await self.adapter.stage(event, session)
+        event_dict = copy(vars(event))
+        del event_dict["acknowledgement_queue"]
+        event_json = orjson.dumps(event_dict).decode("utf-8")
+        stmt = self.adapter.get_outbox_insert_stmt(
+            event.id, event.created_at, event_json
+        )
+        return await self.adapter.execute_stmt_on_transaction(stmt, session)
 
-    async def publish(self, event: Event):
-        return await self.adapter.publish(event)
+    async def _publish_task(self, event, queue):
+        @self.async_retry
+        async def wait_for_ack(event):
+            try:
+                return await asyncio.wait_for(
+                    event.acknowledgement_queue.get(), timeout=self.ack_timeout
+                )
+            except asyncio.TimeoutError:
+                return False
+
+        select_stmt = self.adapter.get_outbox_select_stmt(event.id)
+        connection = await self.adapter.get_connection()
+        result = await self.adapter.execute_stmt_on_connection(select_stmt, connection)
+        record = self.adapter.get_first_row(result)
+        if record is None:
+            return
+
+        event_id = record.id
+        update_stmt = self.adapter.get_outbox_update_stmt(event_id)
+        await self.adapter.execute_stmt_on_connection(update_stmt, connection)
+        await queue.put(event)
+        expected_ack_count = await wait_for_ack(event)
+        acked_count = 0
+        for _ in range(expected_ack_count):
+            ack = await wait_for_ack(event)
+            if ack:
+                acked_count += 1
+        if acked_count == expected_ack_count:
+            LOGGER.info(f"Event {event.id} acknowledged")
+            await self.adapter.commit_connection(connection)
+        await self.adapter.close_connection(connection)
+
+    async def publish(self, event: Event, queue=wibbley_queue):
+        asyncio.create_task(self._publish_task(event, queue))
 
     async def is_duplicate(
         self,
         event: Event,
         session: AbstractAsyncSession,
     ) -> bool:
-        return await self.adapter.is_duplicate(event, session)
+        select_stmt = self.adapter.get_inbox_select_stmt(event.id)
+        result = await self.adapter.execute_stmt_on_transaction(select_stmt, session)
+        record = self.adapter.get_first_row(result)
+        if record:
+            self.ack(event)
+            return True
+
+        event_dict = copy(vars(event))
+        del event_dict["acknowledgement_queue"]
+        event_json = orjson.dumps(event_dict).decode("utf-8")
+        stmt = self.adapter.get_inbox_insert_stmt(
+            event.id, event.created_at, event_json
+        )
+        await self.adapter.execute_stmt_on_transaction(stmt, session)
+        return False
 
     def ack(self, event: Event):
         event.acknowledgement_queue.put_nowait(True)
