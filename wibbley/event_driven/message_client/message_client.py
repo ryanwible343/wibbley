@@ -113,22 +113,12 @@ class MessageClient:
             return
 
         event_id = record.id
-        print("record", record)
         attempts = record.attempts
         update_stmt = self.adapter.get_outbox_update_stmt(event_id, attempts + 1)
         await self.adapter.execute_stmt_on_connection(update_stmt, connection)
         await queue.put(event)
-        expected_ack_count = await wait_for_ack(event)
-        if expected_ack_count is False:
-            await self.adapter.close_connection(connection)
-            return
-        acked_count = 0
-        for _ in range(expected_ack_count):
-            ack = await wait_for_ack(event)
-            if ack:
-                acked_count += 1
-        if acked_count == expected_ack_count:
-            LOGGER.info(f"Event {event.id} acknowledged")
+        ack = await wait_for_ack(event)
+        if ack:
             await self.adapter.commit_connection(connection)
         await self.adapter.close_connection(connection)
 

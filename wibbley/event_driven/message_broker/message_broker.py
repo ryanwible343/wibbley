@@ -35,6 +35,10 @@ class MessageBroker:
         self.outbox_poller_count = message_broker_settings.outbox_poller_count
         self.queue = queue
 
+    async def _wait_for_ack(self, event):
+        await self.queue.put(event)
+        return await event.acknowledgement_queue.get()
+
     async def _handle_outbox(self):
         connection = await self.adapter.get_connection()
         select_stmt = self.adapter.get_outbox_outstanding_select_stmt()
@@ -47,12 +51,13 @@ class MessageBroker:
             event_type = record.event["event_type"]
             event = {**record.event}
             del event["event_type"]
+            del event["fanout_key"]
             event = self.messagebus.event_type_registry[event_type](**event)
             events.append(event)
 
         outbox_tasks = []
         for event in events:
-            outbox_tasks.append(asyncio.create_task(self.queue.put(event)))
+            outbox_tasks.append(self._wait_for_ack(event))
 
         ack_results = await asyncio.gather(*outbox_tasks)
         for index, result in enumerate(ack_results):
