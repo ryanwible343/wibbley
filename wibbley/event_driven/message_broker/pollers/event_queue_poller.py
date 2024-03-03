@@ -1,9 +1,12 @@
 import asyncio
 from copy import copy
+from logging import getLogger
 
 import orjson
 
 from wibbley.event_driven.message_broker.queue import wibbley_queue
+
+LOGGER = getLogger(__name__)
 
 
 class EventQueuePoller:
@@ -28,7 +31,7 @@ class EventQueuePoller:
         get_stmt = self.adapter.get_fanout_select_all_stmt(event_id)
         result = await self.adapter.execute_stmt_on_connection(get_stmt, connection)
         records = self.adapter.get_all_rows(result)
-        return len(records) == 0
+        return len(records) != 0
 
     async def _persist_fanout_messages(self, fanout_messages, connection):
         for fanout_message in fanout_messages:
@@ -43,6 +46,13 @@ class EventQueuePoller:
             )
             await self.adapter.execute_stmt_on_connection(insert_stmt, connection)
 
+    async def _handle_message_and_wait_for_ack(self, handler, event):
+        await self.messagebus.execute_event_handler(handler, event)
+        try:
+            return await asyncio.wait_for(event.acknowledgement_queue.get(), timeout=1)
+        except asyncio.TimeoutError:
+            return False
+
     async def _route_fanout_messages(self, fanout_messages, event_handlers):
         event_handling_tasks = []
         for fanout_message in fanout_messages:
@@ -51,7 +61,7 @@ class EventQueuePoller:
                     fanout_message.acknowledgement_queue = asyncio.Queue()
                     event_handling_tasks.append(
                         asyncio.create_task(
-                            self.messagebus.execute_event_handler(
+                            self._handle_message_and_wait_for_ack(
                                 handler["handler"], fanout_message
                             )
                         )
@@ -59,13 +69,20 @@ class EventQueuePoller:
         return await asyncio.gather(*event_handling_tasks)
 
     async def _delete_acked_fanout_messages(self, fanout_messages, results, connection):
+        LOGGER.info("results: %s", results)
         for index, result in enumerate(results):
             if result:
+                LOGGER.info("should see this once")
                 delete_stmt = self.adapter.delete_fanout_stmt(
                     fanout_messages[index]["message"].id,
                     fanout_messages[index]["fanout_key"],
                 )
                 await self.adapter.execute_stmt_on_connection(delete_stmt, connection)
+            else:
+                update_stmt = self.adapter.get_fanout_failed_delivery_update_stmt(
+                    fanout_messages[index].id, fanout_messages[index].fanout_key, 1
+                )
+                await self.adapter.execute_stmt_on_connection(update_stmt, connection)
 
     async def _handle_event(self):
         event = await self.queue.get()
@@ -80,6 +97,7 @@ class EventQueuePoller:
             is_fanout_persisted = await self._is_fanout_persisted(event.id, connection)
 
             if not is_fanout_persisted:
+                LOGGER.info("Fanout not yet persisted")
                 await self._persist_fanout_messages(fanout_messages, connection)
         except Exception as e:
             await self.adapter.rollback_transaction(transaction)
@@ -90,6 +108,7 @@ class EventQueuePoller:
             ack_results = await self._route_fanout_messages(
                 fanout_messages, event_handlers
             )
+
             try:
                 await self._delete_acked_fanout_messages(
                     fanout_messages, ack_results, connection

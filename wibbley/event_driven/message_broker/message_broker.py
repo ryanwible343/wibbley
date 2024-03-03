@@ -39,7 +39,9 @@ class MessageBroker:
         self.max_fanout_delivery_attempts = 3
         self.queue = queue
         self.tasks = []
-        self.fanout_poller = FanoutPoller(self.adapter, self.messagebus)
+        self.fanout_poller = FanoutPoller(
+            self.adapter, self.messagebus, self.max_fanout_delivery_attempts
+        )
         self.outbox_poller = OutboxPoller(self.adapter, self.messagebus)
         self.event_queue_poller = EventQueuePoller(self.adapter, self.messagebus)
 
