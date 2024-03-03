@@ -1,68 +1,59 @@
 import asyncio
 from logging import getLogger
 
+import orjson
+
 LOGGER = getLogger(__name__)
 
 
 class FanoutPoller:
-    def __init__(self, adapter, messagebus):
+    def __init__(self, adapter, messagebus, max_attempts):
         self.adapter = adapter
         self.messagebus = messagebus
+        self.max_attempts = max_attempts
 
     async def _handle_fanout(self):
         connection = await self.adapter.get_connection()
-        select_stmt = self.adapter.get_fanout_outstanding_select_stmt()
-        result = await self.adapter.execute_stmt_on_connection(select_stmt, connection)
+        outstanding_fanout_stmt = self.adapter.get_fanout_outstanding_select_stmt()
+        result = await self.adapter.execute_stmt_on_connection(
+            outstanding_fanout_stmt, connection
+        )
         records = self.adapter.get_all_rows(result)
-        LOGGER.info("Fanout records: %s", records)
+        if len(records) == 0:
+            await self.adapter.close_connection(connection)
+            return
 
-        fanout_messages = []
         for record in records:
-            event_type = record.event["event_type"]
-            event = {**record.event}
-            del event["event_type"]
-            del event["fanout_key"]
-            event = self.messagebus.event_type_registry[event_type](**event)
-            fanout_messages.append(
-                {
-                    "id": record.id,
-                    "fanout_key": record.fanout_key,
-                    "message": event,
-                    "attempts": record.attempts,
-                }
-            )
+            if record.attempts == self.max_attempts:
+                pass
 
-        fanout_tasks = []
-        for fanout_message in fanout_messages:
-            for handler in self.messagebus.event_handlers:
-                if handler["handler_name"] == fanout_message.fanout_key:
-                    fanout_message.acknowledgement_queue = asyncio.Queue()
-                    fanout_tasks.append(
-                        asyncio.create_task(
-                            self.messagebus.execute_event_handler(
-                                handler["handler"], fanout_message
+        records = [record for record in records if record.attempts < self.max_attempts]
+        events = [self._convert_message_to_event(record) for record in records]
+        for event in events:
+            event_handlers = self.messagebus.event_handlers[type(event)]
+            for handler in event_handlers:
+                if handler["handler_name"] == event.fanout_key:
+                    asyncio.create_task(
+                        self.messagebus.execute_event_handler(handler["handler"], event)
+                    )
+                    ack_result = await event.acknowledgement_queue.get()
+                    if ack_result:
+                        delete_stmt = self.adapter.delete_fanout_stmt(
+                            event.id, event.fanout_key
+                        )
+                        await self.adapter.execute_stmt_on_connection(
+                            delete_stmt, connection
+                        )
+                    else:
+                        update_stmt = (
+                            self.adapter.get_fanout_failed_delivery_update_stmt(
+                                event.id, event.fanout_key, records[0].attempts + 1
                             )
                         )
-                    )
-
-        ack_results = await asyncio.gather(*fanout_tasks)
-        for index, result in enumerate(ack_results):
-            if result:
-                update_stmt = self.adapter.get_fanout_update_stmt(
-                    fanout_messages[index]["id"],
-                    fanout_messages[index]["fanout_key"],
-                    fanout_messages[index]["attempts"] + 1,
-                )
-                await self.adapter.execute_stmt_on_connection(update_stmt, connection)
-            else:
-                update_stmt = self.adapter.get_fanout_failed_delivery_update_stmt(
-                    fanout_messages[index]["id"],
-                    fanout_messages[index]["fanout_key"],
-                    fanout_messages[index]["attempts"] + 1,
-                )
-                await self.adapter.execute_stmt_on_connection(update_stmt, connection)
+                        await self.adapter.execute_stmt_on_connection(
+                            update_stmt, connection
+                        )
         await self.adapter.commit_connection(connection)
-        await self.adapter.close_connection(connection)
 
     async def poll(self):
         while True:
