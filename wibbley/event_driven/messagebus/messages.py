@@ -13,10 +13,10 @@ class Event:
     acknowledgement_queue: asyncio.Queue = field(
         default_factory=lambda: asyncio.Queue()
     )
+    fanout_key: str = field(default_factory=lambda: "")
 
     def __post_init__(self):
         self.event_type = type(self).__name__
-        self.fanout_key = self.event_type
 
 
 class Command:

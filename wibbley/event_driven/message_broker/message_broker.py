@@ -93,8 +93,8 @@ class MessageBroker:
         fanout_messages = []
         for handler in event_handlers:
             new_event = copy(event)
-            fanout_key = handler["handler_name"]
-            fanout_messages.append({"fanout_key": fanout_key, "event": new_event})
+            new_event.fanout_key = handler["handler_name"]
+            fanout_messages.append(new_event)
         return fanout_messages
 
     async def _is_fanout_persisted(self, event_id, connection):
@@ -107,12 +107,11 @@ class MessageBroker:
         for fanout_message in fanout_messages:
             event = fanout_message["event"]
             event = copy(vars(event))
-            event["fanout_key"] = fanout_message["fanout_key"]
             del event["acknowledgement_queue"]
             insert_stmt = self.adapter.get_fanout_insert_stmt(
-                fanout_message["event"].id,
-                fanout_message["fanout_key"],
-                fanout_message["event"].created_at,
+                fanout_message.id,
+                fanout_message.fanout_key,
+                fanout_message.created_at,
                 orjson.dumps(event).decode("utf-8"),
             )
             await self.adapter.execute_stmt_on_connection(insert_stmt, connection)
@@ -121,12 +120,12 @@ class MessageBroker:
         event_handling_tasks = []
         for fanout_message in fanout_messages:
             for handler in event_handlers:
-                if handler["handler_name"] == fanout_message["fanout_key"]:
-                    fanout_message["event"].acknowledgement_queue = asyncio.Queue()
+                if handler["handler_name"] == fanout_message.fanout_key:
+                    fanout_message.acknowledgement_queue = asyncio.Queue()
                     event_handling_tasks.append(
                         asyncio.create_task(
                             self.messagebus.execute_event_handler(
-                                handler["handler"], fanout_message["event"]
+                                handler["handler"], fanout_message
                             )
                         )
                     )
@@ -149,22 +148,33 @@ class MessageBroker:
         fanout_messages = self._fanout_event(event, event_handlers)
         connection = await self.adapter.get_connection()
 
-        is_fanout_persisted = await self._is_fanout_persisted(event.id, connection)
+        transaction = await self.adapter.get_transaction(connection)
+        await self.adapter.start_transaction(transaction)
+        try:
+            is_fanout_persisted = await self._is_fanout_persisted(event.id, connection)
 
-        if not is_fanout_persisted:
-            await self._persist_fanout_messages(fanout_messages, connection)
-            await self.adapter.commit_connection(connection)
+            if not is_fanout_persisted:
+                await self._persist_fanout_messages(fanout_messages, connection)
+        except Exception as e:
+            await self.adapter.rollback_transaction(transaction)
+        else:
+            await self.adapter.commit_transaction(transaction)
 
-        await event.acknowledgement_queue.put(True)
-        ack_results = await self._route_fanout_messages(fanout_messages, event_handlers)
-
-        await self._delete_acked_fanout_messages(
-            fanout_messages, ack_results, connection
-        )
-        await self.adapter.commit_connection(connection)
-
-        await self.adapter.close_connection(connection)
-        self.queue.task_done()
+            await event.acknowledgement_queue.put(True)
+            ack_results = await self._route_fanout_messages(
+                fanout_messages, event_handlers
+            )
+            try:
+                await self._delete_acked_fanout_messages(
+                    fanout_messages, ack_results, connection
+                )
+            except:
+                await self.adapter.rollback_transaction(transaction)
+            else:
+                await self.adapter.commit_connection(connection)
+        finally:
+            await self.adapter.close_connection(connection)
+            self.queue.task_done()
 
     async def _poll_queue(self):
         while True:

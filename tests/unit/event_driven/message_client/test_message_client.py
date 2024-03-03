@@ -15,6 +15,7 @@ class FakeConnectionFactory:
 class FakeRecord:
     def __init__(self):
         self.id = "test"
+        self.attempts = 0
 
 
 class FakeEmptyAdapter:
@@ -59,13 +60,13 @@ class FakeEmptyAdapter:
         self.get_outbox_update_stmt_calls.append(event_id)
         return "fake_stmt"
 
-    def get_inbox_select_stmt(self, event_id):
-        self.get_inbox_select_stmt_calls.append(event_id)
+    def get_inbox_select_stmt(self, event_id, fanout_key):
+        self.get_inbox_select_stmt_calls.append((event_id, fanout_key))
         return "fake_stmt"
 
-    def get_inbox_insert_stmt(self, event_id, event_created_at, event_json):
+    def get_inbox_insert_stmt(self, event_id, event_created_at, fanout_key, event_json):
         self.get_inbox_insert_stmt_calls.append(
-            (event_id, event_created_at, event_json)
+            (event_id, event_created_at, fanout_key, event_json)
         )
         return "fake_stmt"
 
@@ -117,9 +118,9 @@ class FakeAdapter:
     async def commit_connection(self, connection):
         self.commit_connection_calls.append(connection)
 
-    def get_outbox_insert_stmt(self, event_id, event_created_at, event_json):
+    def get_outbox_insert_stmt(self, event_id, event_created_at, event_json, attempts):
         self.get_outbox_insert_stmt_calls.append(
-            (event_id, event_created_at, event_json)
+            (event_id, event_created_at, event_json, attempts)
         )
         return "fake_stmt"
 
@@ -127,12 +128,12 @@ class FakeAdapter:
         self.get_outbox_select_stmt_calls.append(event_id)
         return "fake_stmt"
 
-    def get_outbox_update_stmt(self, event_id):
-        self.get_outbox_update_stmt_calls.append(event_id)
+    def get_outbox_update_stmt(self, event_id, attempts):
+        self.get_outbox_update_stmt_calls.append((event_id, attempts))
         return "fake_stmt"
 
-    def get_inbox_select_stmt(self, event_id):
-        self.get_inbox_select_stmt_calls.append(event_id)
+    def get_inbox_select_stmt(self, event_id, fanout_key):
+        self.get_inbox_select_stmt_calls.append((event_id, fanout_key))
         return "fake_stmt"
 
     def get_inbox_insert_stmt(self, event_id, event_created_at, event_json):
@@ -194,7 +195,7 @@ async def test__stage__gets_outbox_stmt_and_executes():
 
     # Assert
     assert message_client.adapter.get_outbox_insert_stmt_calls == [
-        (fake_event.id, fake_event.created_at, fake_event_json)
+        (fake_event.id, fake_event.created_at, fake_event_json, 0)
     ]
     assert message_client.adapter.execute_stmt_on_transaction_calls == [
         ("fake_stmt", fake_session)
@@ -221,6 +222,7 @@ async def test__publish_task__pulls_from_outbox_publishes_and_updates():
 
     # Assert
     assert message_client.adapter.get_outbox_select_stmt_calls == [fake_event.id]
+    assert message_client.adapter.get_outbox_update_stmt_calls == [("test", 1)]
     assert message_client.adapter.execute_stmt_on_connection_calls == [
         ("fake_stmt", None),
         ("fake_stmt", None),
@@ -257,11 +259,10 @@ async def test__publish_task__when_record_is_none__returns_early():
 
 
 @pytest.mark.asyncio
-async def test__publish_test__when_nacked__does_not_commit():
+async def test__publish_task__when_nacked__does_not_commit():
     # Arrange
     allowed_adapters = {"fake": FakeAdapter}
     fake_event = Event()
-    fake_event.acknowledgement_queue.put_nowait(1)
     fake_event.acknowledgement_queue.put_nowait(False)
     fake_queue = asyncio.Queue()
     fake_connection_factory = FakeConnectionFactory()
@@ -326,7 +327,7 @@ async def test__is_duplicate__when_is_duplicate__returns_true():
     result = await message_client.is_duplicate(fake_event, fake_session)
 
     # Assert
-    assert message_client.adapter.get_inbox_select_stmt_calls == [fake_event.id]
+    assert message_client.adapter.get_inbox_select_stmt_calls == [(fake_event.id, "")]
     assert message_client.adapter.execute_stmt_on_transaction_calls == [
         ("fake_stmt", fake_session)
     ]
@@ -354,9 +355,9 @@ async def test__is_duplicate__when_not_duplicate__returns_false():
     result = await message_client.is_duplicate(fake_event, fake_session)
 
     # Assert
-    assert message_client.adapter.get_inbox_select_stmt_calls == [fake_event.id]
+    assert message_client.adapter.get_inbox_select_stmt_calls == [(fake_event.id, "")]
     assert message_client.adapter.get_inbox_insert_stmt_calls == [
-        (fake_event.id, fake_event.created_at, fake_event_json)
+        (fake_event.id, fake_event.created_at, "", fake_event_json)
     ]
     assert message_client.adapter.execute_stmt_on_transaction_calls == [
         ("fake_stmt", fake_session),
@@ -405,7 +406,7 @@ async def test__nack__puts_false_on_acknowledgement_queue():
 
 
 @pytest.mark.asyncio
-async def test__publish_task__when_ack_times_out_on_expected_ack_count__closes_connection_before_committing():
+async def test__publish_task__when_ack_times_out_on_ack___closes_connection_before_committing():
     # Arrange
     allowed_adapters = {"fake": FakeAdapter}
     fake_event = Event()
@@ -424,37 +425,7 @@ async def test__publish_task__when_ack_times_out_on_expected_ack_count__closes_c
     # Assert
     assert message_client.adapter.get_connection_calls == [None]
     assert message_client.adapter.get_outbox_select_stmt_calls == [fake_event.id]
-    assert message_client.adapter.get_outbox_update_stmt_calls == ["test"]
-    assert message_client.adapter.execute_stmt_on_connection_calls == [
-        ("fake_stmt", None),
-        ("fake_stmt", None),
-    ]
-    assert message_client.adapter.commit_connection_calls == []
-    assert message_client.adapter.close_connection_calls == [None]
-
-
-@pytest.mark.asyncio
-async def test__publish_task__when_ack_times_out_on_ack__closes_connection_before_committing():
-    # Arrange
-    allowed_adapters = {"fake": FakeAdapter}
-    fake_event = Event()
-    fake_queue = asyncio.Queue()
-    fake_connection_factory = FakeConnectionFactory()
-    message_client = MessageClient(
-        adapter_name="fake",
-        connection_factory=fake_connection_factory,
-        adapters=allowed_adapters,
-    )
-    message_client.ack_timeout = 0
-    fake_event.acknowledgement_queue.put_nowait(1)
-
-    # ACT
-    await message_client._publish_task(fake_event, fake_queue)
-
-    # Assert
-    assert message_client.adapter.get_connection_calls == [None]
-    assert message_client.adapter.get_outbox_select_stmt_calls == [fake_event.id]
-    assert message_client.adapter.get_outbox_update_stmt_calls == ["test"]
+    assert message_client.adapter.get_outbox_update_stmt_calls == [("test", 1)]
     assert message_client.adapter.execute_stmt_on_connection_calls == [
         ("fake_stmt", None),
         ("fake_stmt", None),

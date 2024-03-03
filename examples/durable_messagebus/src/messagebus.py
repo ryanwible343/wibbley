@@ -59,5 +59,22 @@ class MyEventListener:
                 LOGGER.info(f"Event already processed: {event.id}")
                 return None
             LOGGER.info(f"Event received: {event.id}")
-            message_client.ack(event)
-            return None
+            # Do something with the event within the same session
+            await session.commit()
+        message_client.ack(event)
+        return None
+
+
+@messagebus.listen(SquareCreatedEvent)
+class MyEventListener2:
+    async def handle(self, event, message_client=message_client):
+        sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+        async with sessionmaker() as session:
+            if await message_client.is_duplicate(event, session):
+                LOGGER.info(f"Event already processed: {event.id}")
+                return None
+            LOGGER.info(f"Event received: {event.id}")
+            # Do something with the event within the same session
+            await session.commit()
+        message_client.ack(event)
+        return None

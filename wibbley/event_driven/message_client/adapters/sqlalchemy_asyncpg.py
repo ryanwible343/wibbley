@@ -41,6 +41,18 @@ class SQLAlchemyAsyncpgAdapter:
     async def commit_connection(self, connection):
         await connection.commit()
 
+    async def get_transaction(self, connection):
+        return connection
+
+    async def start_transaction(self, transaction):
+        pass
+
+    async def rollback_transaction(self, transaction):
+        await transaction.rollback()
+
+    async def commit_transaction(self, transaction):
+        await transaction.commit()
+
     def get_outbox_insert_stmt(self, event_id, event_created_at, event_json, attempts):
         return f"INSERT INTO wibbley.outbox (id, created_at, event, delivered, attempts) VALUES ('{event_id}', '{event_created_at}', '{event_json}', FALSE, {attempts})"
 
@@ -58,8 +70,8 @@ class SQLAlchemyAsyncpgAdapter:
             f"UPDATE wibbley.outbox SET attempts = {attempts} WHERE id = '{event_id}';"
         )
 
-    def get_inbox_select_stmt(self, event_id):
-        return f"SELECT * FROM wibbley.inbox WHERE id = '{event_id}';"
+    def get_inbox_select_stmt(self, event_id, fanout_key):
+        return f"SELECT * FROM wibbley.inbox WHERE id = '{event_id}' AND fanout_key = '{fanout_key}';"
 
     def get_inbox_insert_stmt(self, event_id, event_created_at, fanout_key, event_json):
         return f"INSERT INTO wibbley.inbox (id, created_at, event, fanout_key) VALUES ('{event_id}', '{event_created_at}', '{event_json}', '{fanout_key}')"

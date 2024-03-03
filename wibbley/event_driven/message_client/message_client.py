@@ -130,7 +130,7 @@ class MessageClient:
         event: Event,
         session: AbstractAsyncSession,
     ) -> bool:
-        select_stmt = self.adapter.get_inbox_select_stmt(event.id)
+        select_stmt = self.adapter.get_inbox_select_stmt(event.id, event.fanout_key)
         result = await self.adapter.execute_stmt_on_transaction(select_stmt, session)
         record = self.adapter.get_first_row(result)
         if record:

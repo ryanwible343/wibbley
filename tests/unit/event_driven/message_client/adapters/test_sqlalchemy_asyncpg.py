@@ -120,8 +120,9 @@ async def test__sqlalchemy_asyncpg_adapter_get_table_creation_statements__return
 
     assert result == [
         "CREATE SCHEMA IF NOT EXISTS wibbley;",
-        "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN)",
-        "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB)",
+        "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN, attempts INT);",
+        "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID, fanout_key VARCHAR(200), created_at TIMESTAMPTZ, event JSONB, PRIMARY KEY (id, fanout_key));",
+        "CREATE TABLE IF NOT EXISTS wibbley.fanout (id UUID, fanout_key VARCHAR(200), created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN, PRIMARY KEY (id, fanout_key));",
     ]
 
 
@@ -167,11 +168,11 @@ async def test__sqlalchemy_asyncpg_adapter_get_outbox_insert_stmt__returns_inser
     adapter = SQLAlchemyAsyncpgAdapter(None)
 
     # ACT
-    result = adapter.get_outbox_insert_stmt("123", "2021-01-01", '{"test": "test"}')
+    result = adapter.get_outbox_insert_stmt("123", "2021-01-01", '{"test": "test"}', 1)
 
     assert (
         result
-        == "INSERT INTO wibbley.outbox (id, created_at, event, delivered) VALUES ('123', '2021-01-01', '{\"test\": \"test\"}', FALSE)"
+        == "INSERT INTO wibbley.outbox (id, created_at, event, delivered, attempts) VALUES ('123', '2021-01-01', '{\"test\": \"test\"}', FALSE, 1)"
     )
 
 
@@ -192,9 +193,12 @@ async def test__sqlalchemy_asyncpg_adapter_get_outbox_update_stmt__returns_updat
     adapter = SQLAlchemyAsyncpgAdapter(None)
 
     # ACT
-    result = adapter.get_outbox_update_stmt("123")
+    result = adapter.get_outbox_update_stmt("123", 1)
 
-    assert result == "UPDATE wibbley.outbox SET delivered = TRUE WHERE id = '123';"
+    assert (
+        result
+        == "UPDATE wibbley.outbox SET delivered = TRUE, attempts = 1 WHERE id = '123';"
+    )
 
 
 @pytest.mark.asyncio
@@ -203,9 +207,12 @@ async def test__sqlalchemy_asyncpg_adapter_get_inbox_select_stmt__returns_select
     adapter = SQLAlchemyAsyncpgAdapter(None)
 
     # ACT
-    result = adapter.get_inbox_select_stmt("123")
+    result = adapter.get_inbox_select_stmt("123", "test")
 
-    assert result == "SELECT * FROM wibbley.inbox WHERE id = '123';"
+    assert (
+        result
+        == "SELECT * FROM wibbley.inbox WHERE id = '123' AND fanout_key = 'test';"
+    )
 
 
 @pytest.mark.asyncio
@@ -214,11 +221,13 @@ async def test__sqlalchemy_asyncpg_adapter_get_inbox_insert_stmt__returns_insert
     adapter = SQLAlchemyAsyncpgAdapter(None)
 
     # ACT
-    result = adapter.get_inbox_insert_stmt("123", "2021-01-01", '{"test": "test"}')
+    result = adapter.get_inbox_insert_stmt(
+        "123", "2021-01-01", "test", '{"test": "test"}'
+    )
 
     assert (
         result
-        == "INSERT INTO wibbley.inbox (id, created_at, event) VALUES ('123', '2021-01-01', '{\"test\": \"test\"}')"
+        == "INSERT INTO wibbley.inbox (id, created_at, event, fanout_key) VALUES ('123', '2021-01-01', '{\"test\": \"test\"}', 'test')"
     )
 
 
