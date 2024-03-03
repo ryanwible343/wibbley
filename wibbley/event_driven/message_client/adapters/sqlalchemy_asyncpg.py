@@ -29,7 +29,7 @@ class SQLAlchemyAsyncpgAdapter:
             "CREATE SCHEMA IF NOT EXISTS wibbley;",
             "CREATE TABLE IF NOT EXISTS wibbley.outbox (id UUID PRIMARY KEY, created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN, attempts INT);",
             "CREATE TABLE IF NOT EXISTS wibbley.inbox (id UUID, fanout_key VARCHAR(200), created_at TIMESTAMPTZ, event JSONB, PRIMARY KEY (id, fanout_key));",
-            "CREATE TABLE IF NOT EXISTS wibbley.fanout (id UUID, fanout_key VARCHAR(200), created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN, PRIMARY KEY (id, fanout_key));",
+            "CREATE TABLE IF NOT EXISTS wibbley.fanout (id UUID, fanout_key VARCHAR(200), created_at TIMESTAMPTZ, event JSONB, delivered BOOLEAN, attempts INT, PRIMARY KEY (id, fanout_key));",
         ]
 
     async def get_connection(self):
@@ -80,6 +80,15 @@ class SQLAlchemyAsyncpgAdapter:
         self, event_id, fanout_key, event_created_at, event_json
     ):
         return f"INSERT INTO wibbley.fanout (id, fanout_key, created_at, event, delivered) VALUES ('{event_id}', '{fanout_key}', '{event_created_at}', '{event_json}', FALSE)"
+
+    def get_fanout_failed_delivery_update_stmt(self, event_id, fanout_key, attempts):
+        return f"UPDATE wibbley.fanout SET attempts = {attempts} WHERE id = '{event_id}' AND fanout_key = '{fanout_key}';"
+
+    def get_fanout_update_stmt(self, event_id, fanout_key, attempts):
+        return f"UPDATE wibbley.fanout SET delivered = TRUE, attempts = {attempts} WHERE id = '{event_id}' AND fanout_key = '{fanout_key}';"
+
+    def get_fanout_outstanding_select_stmt(self):
+        return f"SELECT * FROM wibbley.fanout WHERE delivered = FALSE;"
 
     def get_fanout_select_all_stmt(self, event_id):
         return f"SELECT * FROM wibbley.fanout WHERE id = '{event_id}';"

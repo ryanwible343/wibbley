@@ -90,7 +90,10 @@ def test__messagebus_listen__when_message_is_event_and_decorated_is_class__adds_
             pass
 
     # Assert
-    assert type(messagebus.event_handlers[Event][0]) == type(FakeClass().handle)
+    assert type(messagebus.event_handlers[Event][0]["handler"]) == type(
+        FakeClass().handle
+    )
+    assert messagebus.event_handlers[Event][0]["handler_name"] == "FakeClass"
 
 
 def test__messagebus_listen__when_message_is_event_and_decorated_is_function__adds_event_handler():
@@ -103,7 +106,8 @@ def test__messagebus_listen__when_message_is_event_and_decorated_is_function__ad
         pass
 
     # Assert
-    assert type(messagebus.event_handlers[Event][0]) == type(fake_function)
+    assert type(messagebus.event_handlers[Event][0]["handler"]) == type(fake_function)
+    assert messagebus.event_handlers[Event][0]["handler_name"] == "fake_function"
 
 
 def test__messagebus_listen__when_multiple_event_handlers_decorated__appends_to_handler_list():
@@ -134,7 +138,10 @@ def test__messagebus_listen__when_message_is_command_and_decorated_is_class__add
             pass
 
     # Assert
-    assert type(messagebus.command_handlers[Command]) == type(FakeClass().handle)
+    assert type(messagebus.command_handlers[Command]["handler"]) == type(
+        FakeClass().handle
+    )
+    assert messagebus.command_handlers[Command]["handler_name"] == "FakeClass"
 
 
 def test__messagebus_listen__when_message_is_command_and_decorated_is_function__adds_command_handler():
@@ -147,7 +154,8 @@ def test__messagebus_listen__when_message_is_command_and_decorated_is_function__
         pass
 
     # Assert
-    assert type(messagebus.command_handlers[Command]) == type(fake_function)
+    assert type(messagebus.command_handlers[Command]["handler"]) == type(fake_function)
+    assert messagebus.command_handlers[Command]["handler_name"] == "fake_function"
 
 
 def test__messagebus_listen__when_command_handler_already_registered__raises_value_error():
@@ -177,7 +185,8 @@ def test__messagebus_listen__when_message_is_query_and_decorated_is_class__adds_
             pass
 
     # Assert
-    assert type(messagebus.query_handlers[Query]) == type(FakeClass().handle)
+    assert type(messagebus.query_handlers[Query]["handler"]) == type(FakeClass().handle)
+    assert messagebus.query_handlers[Query]["handler_name"] == "FakeClass"
 
 
 def test__messagebus_listen__when_message_is_query_and_decorated_is_function__adds_query():
@@ -190,7 +199,8 @@ def test__messagebus_listen__when_message_is_query_and_decorated_is_function__ad
         pass
 
     # Assert
-    assert type(messagebus.query_handlers[Query]) == type(fake_function)
+    assert type(messagebus.query_handlers[Query]["handler"]) == type(fake_function)
+    assert messagebus.query_handlers[Query]["handler_name"] == "fake_function"
 
 
 def test__messagebus_listen__when_query_handler_already_registered__raises_value_error():

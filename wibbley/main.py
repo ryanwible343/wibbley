@@ -17,7 +17,6 @@ import wibbley
 from wibbley.event_driven.message_broker.message_broker import MessageBroker
 
 SIGNAL_HANDLERS = [SIGINT, SIGTERM]
-DEFAULT_EVENT_HANDLER_TASK_COUNT = 100
 TRACE_LOG_LEVEL = 5
 LOG_LEVELS: Dict[str, int] = {
     "critical": logging.CRITICAL,
@@ -97,22 +96,6 @@ def load_module(module_path: str):
         return None
 
 
-async def handle_message(queue, messagebus):
-    message = await queue.get()
-    count_of_event_handlers = len(messagebus.event_handlers[type(message)])
-    await message.acknowledgement_queue.put(count_of_event_handlers)
-    await messagebus.handle(message)
-    queue.task_done()
-
-
-async def read_from_queue(queue: asyncio.Queue, messagebus):
-    while True:
-        try:
-            await handle_message(queue, messagebus)
-        except asyncio.CancelledError:
-            break
-
-
 def shutdown_handler(server: uvicorn.Server, tasks, sig):
     for task in tasks:
         task.cancel()
@@ -145,18 +128,14 @@ def install_signal_handlers(
 
 async def serve_app(
     message_broker,
-    task_count: int,
     server: uvicorn.Server,
-    background_task: read_from_queue = read_from_queue,
     install_signal_handlers: install_signal_handlers = install_signal_handlers,
 ):
     loop = asyncio.get_event_loop()
-    event_handler_tasks = []
     if message_broker:
-        asyncio.create_task(message_broker.start())
-        install_signal_handlers(server, event_handler_tasks, loop)
-    tasks = event_handler_tasks + [asyncio.create_task(server.serve())]
-    await asyncio.gather(*tasks)
+        await message_broker.start()
+        install_signal_handlers(server, message_broker.tasks, loop)
+    await server.serve()
 
 
 def print_version(
@@ -179,12 +158,6 @@ def print_version(
     type=str,
     default=None,
     help="Name of the module containing the message_broker. Format: module_path.module_name:message_broker_name",
-)
-@click.option(
-    "--event-handler-task-count",
-    type=int,
-    default=DEFAULT_EVENT_HANDLER_TASK_COUNT,
-    help="Number of event handler tasks to run",
 )
 @click.option("--host", type=str, help="Bind socket to this host.", default="127.0.0.1")
 @click.option("--port", type=int, help="Bind socket to this port.", default=8000)
@@ -376,7 +349,6 @@ def print_version(
 def main(
     app,
     message_broker,
-    event_handler_task_count,
     host: str,
     port: int,
     uds: str,
@@ -461,7 +433,6 @@ def main(
     uvloop.run(
         serve_app(
             message_broker=loaded_message_broker,
-            task_count=event_handler_task_count,
             server=server,
         )
     )

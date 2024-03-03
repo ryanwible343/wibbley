@@ -7,12 +7,10 @@ from wibbley.api.app import App
 from wibbley.event_driven.messagebus.messages import Event
 from wibbley.main import (
     SignalHandlerInstaller,
-    handle_message,
     install_signal_handlers,
     load_module,
     main,
     print_version,
-    read_from_queue,
     serve_app,
     shutdown_handler,
 )
@@ -22,17 +20,13 @@ async def fake_handler(message):
     pass
 
 
-class FakeMessagebus:
+class FakeMessageBroker:
     def __init__(self):
-        self.is_durable = False
-        self.enable_exactly_once_processing_called = False
-        self.event_handlers = {Event: [fake_handler]}
+        self.start_called = False
+        self.tasks = []
 
-    async def handle(self, message):
-        pass
-
-    async def enable_exactly_once_processing(self):
-        self.enable_exactly_once_processing_called = True
+    async def start(self):
+        self.start_called = True
 
 
 class FakeTask:
@@ -139,39 +133,6 @@ def test__load_module__when_parameter_does_not_contain_colon__returns_none():
     assert module == None
 
 
-@pytest.mark.asyncio
-async def test__handle_message__marks_task_as_done():
-    # ARRANGE
-    message = Event()
-    messagebus = FakeMessagebus()
-    queue = asyncio.Queue()
-    queue.put_nowait(message)
-
-    # ACT
-    await handle_message(queue, messagebus)
-
-    # ASSERT
-    assert queue.empty() == True
-
-
-@pytest.mark.asyncio
-async def test__read_from_queue__calls_handle_message():
-    # ARRANGE
-    messagebus = FakeMessagebus()
-    queue = asyncio.Queue()
-    message = Event()
-    queue.put_nowait(message)
-
-    # ACT
-    try:
-        await asyncio.wait_for(read_from_queue(queue, messagebus), timeout=0.1)
-    except asyncio.TimeoutError:
-        pass
-
-    # ASSERT
-    assert queue.empty() == True
-
-
 def test__shutdown_handler__cancels_tasks_and_calls_server_handle_exit():
     # ARRANGE
     fake_task_1 = FakeTask()
@@ -234,15 +195,14 @@ def test__install_signal_handlers__when_installer_raises_exception__adds_signal_
 
 
 @pytest.mark.asyncio
-async def test__serve_app__no_messagebus__runs_serve_app_task():
+async def test__serve_app__no_message_broker__runs_serve_app_task():
     # ARRANGE
     config = {}
     server = FakeServer(config)
 
     # ACT
     await serve_app(
-        messagebus=None,
-        task_count=1,
+        message_broker=None,
         server=server,
     )
 
@@ -250,50 +210,25 @@ async def test__serve_app__no_messagebus__runs_serve_app_task():
     assert server.serve_called == True
 
 
-def test__serve_app__when_messagebus__runs_background_task_and_installs_event_handlers():
+def test__serve_app__when_message_broker__calls_start_and_installs_event_handlers():
     # ARRANGE
-    background_task = FakeBackgroundTask()
     signal_handler_installer = FakeSignalHandlerInstaller()
     config = {}
     server = FakeServer(config)
+    fake_message_broker = FakeMessageBroker()
 
     # ACT
     asyncio.run(
         serve_app(
-            FakeMessagebus(),
-            1,
+            fake_message_broker,
             server,
-            background_task.run,
             signal_handler_installer.install,
         )
     )
 
     # ASSERT
-    assert background_task.background_task_called == True
+    assert fake_message_broker.start_called == True
     assert signal_handler_installer.install_called == True
-
-
-def test__serve_app__when_messagebus_is_durable__enables_exactly_once_processing():
-    # ARRANGE
-    background_task = FakeBackgroundTask()
-    signal_handler_installer = FakeSignalHandlerInstaller()
-    server = FakeServer({})
-    messagebus = FakeMessagebus()
-    messagebus.is_durable = True
-
-    # ACT
-    asyncio.run(
-        serve_app(
-            messagebus,
-            1,
-            server,
-            background_task.run,
-            signal_handler_installer.install,
-        )
-    )
-
-    # ASSERT
-    assert messagebus.enable_exactly_once_processing_called == True
 
 
 def test__print_version__when_value_and_no_resilient_parsing__calls_click_echo():
@@ -335,7 +270,7 @@ def test__main__when_cannot_load_app__calls_sys_exit_1(mocker):
     assert result.exit_code == 1
 
 
-def test__main__when_cannot_load_messagebus__calls_sys_exit_1():
+def test__main__when_cannot_load_message_broker__calls_sys_exit_1():
     # ARRANGE
     runner = CliRunner()
 
@@ -345,7 +280,7 @@ def test__main__when_cannot_load_messagebus__calls_sys_exit_1():
         [
             "--app",
             "wibbley.api.app:App",
-            "--messagebus",
+            "--message-broker",
             "wibbley.does_not_exist",
         ],
     )
